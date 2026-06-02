@@ -5,10 +5,18 @@
   },
   "routes": [
     {
+  "route": "/*",
+  "allowedRoles": ["authenticated"]
+}
+    {
       "route": "/login",
       "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer",
       "statusCode": 302
     },
+    {
+  "route": "/favicon.ico",
+  "allowedRoles": ["anonymous", "authenticated"]
+}
     {
       "route": "/logout",
       "redirect": "/.auth/logout?post_logout_redirect_uri=/",
@@ -23,18 +31,18 @@
       "allowedRoles": ["anonymous", "authenticated"]
     },
     {
+      "route": "/favicon.ico",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
       "route": "/*",
-      "allowedRoles": ["portal_projekt-handover", "portal_admin"]
+      "allowedRoles": ["authenticated"]
     }
   ],
   "responseOverrides": {
     "401": {
       "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer",
       "statusCode": 302
-    },
-    "403": {
-      "rewrite": "/403.html",
-      "statusCode": 403
     }
   },
   "auth": {
