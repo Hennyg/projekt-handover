@@ -15,20 +15,12 @@
       "statusCode": 302
     },
     {
-      "route": "/.auth/login/github",
-      "statusCode": 404
-    },
-    {
       "route": "/assets/*",
       "allowedRoles": ["anonymous", "authenticated"]
     },
     {
       "route": "/icons/*",
       "allowedRoles": ["anonymous", "authenticated"]
-    },
-    {
-      "route": "/api/getroles",
-      "allowedRoles": ["authenticated"]
     },
     {
       "route": "/*",
@@ -46,7 +38,6 @@
     }
   },
   "auth": {
-    "rolesSource": "/api/getroles",
     "identityProviders": {
       "azureActiveDirectory": {
         "registration": {
