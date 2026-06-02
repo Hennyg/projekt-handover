@@ -1,0 +1,8 @@
+{
+  "name": "projekt-handover-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "jszip": "^3.10.1"
+  }
+}

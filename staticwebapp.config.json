@@ -1,0 +1,60 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/handover.html", "/assets/*", "/.auth/*", "/api/*", "/icons/*", "/favicon.ico"]
+  },
+  "routes": [
+    {
+      "route": "/login",
+      "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer",
+      "statusCode": 302
+    },
+    {
+      "route": "/logout",
+      "redirect": "/.auth/logout?post_logout_redirect_uri=/",
+      "statusCode": 302
+    },
+    {
+      "route": "/.auth/login/github",
+      "statusCode": 404
+    },
+    {
+      "route": "/assets/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/icons/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/api/getroles",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["portal_projekt-handover", "portal_admin"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer",
+      "statusCode": 302
+    },
+    "403": {
+      "rewrite": "/403.html",
+      "statusCode": 403
+    }
+  },
+  "auth": {
+    "rolesSource": "/api/getroles",
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/5fbd2064-b472-4740-b035-3cb52bb46de4",
+          "clientIdSettingName": "AZURE_CLIENT_ID",
+          "clientSecretSettingName": "AZURE_CLIENT_SECRET"
+        }
+      }
+    }
+  }
+}
