@@ -56,6 +56,21 @@ body {
 
 .topbar-right a:hover { text-decoration: underline; }
 
+.navButton {
+  height: 36px;
+  border: 1px solid rgba(255,255,255,.55);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 13px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.navButton:hover {
+  background: rgba(255,255,255,.22);
+}
+
 .logoText {
   width: 44px;
   height: 44px;
@@ -268,6 +283,53 @@ button.wide { width: 100%; height: 48px; font-size: 17px; }
   flex-wrap: wrap;
   gap: 10px;
   margin: 14px 0;
+}
+
+.qrModal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(420px, 92vw);
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.28);
+  z-index: 9999;
+  padding: 24px;
+}
+
+.qrModal h2 {
+  margin: 0 0 8px 0;
+  font-size: 26px;
+}
+
+.qrModal p {
+  color: var(--muted);
+  margin: 0 0 16px 0;
+}
+
+.qrBox {
+  display: grid;
+  place-items: center;
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.qrBox img {
+  width: 280px;
+  height: 280px;
+  max-width: 100%;
+}
+
+#qrUrl {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
 }
 
 .status {

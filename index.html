@@ -17,6 +17,7 @@
     </div>
     <div class="topbar-right">
       <span id="userDisplay"></span>
+      <button id="btnQr" type="button" class="navButton">QR</button>
       <a href="/handover.html">Ny handover</a>
       <a href="/.auth/logout?post_logout_redirect_uri=/">Log ud</a>
     </div>
@@ -60,6 +61,17 @@
   <div id="detailDrawer" class="detailDrawer hidden">
     <button class="detailClose" id="detailClose">✕</button>
     <div id="detailContent"></div>
+  </div>
+
+  <div id="qrBackdrop" class="detailBackdrop hidden"></div>
+  <div id="qrModal" class="qrModal hidden">
+    <button class="detailClose" id="qrClose">✕</button>
+    <h2>QR til handover</h2>
+    <p>Scan med telefonen for at åbne tekniker-siden.</p>
+    <div class="qrBox">
+      <img id="qrImage" alt="QR kode til handover">
+    </div>
+    <input id="qrUrl" type="text" readonly>
   </div>
 
   <script src="/assets/index.js"></script>

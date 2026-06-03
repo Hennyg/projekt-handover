@@ -8,20 +8,34 @@ const el = id => document.getElementById(id);
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, m => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
   }[m]));
 }
 
 function fmtDate(s) {
   if (!s) return "";
+
   const d = new Date(s);
+
   if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleString("da-DK", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+
+  return d.toLocaleString("da-DK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function parseImages(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v;
+
   try {
     const j = JSON.parse(v);
     return Array.isArray(j) ? j : [];
@@ -48,18 +62,32 @@ function bind() {
   el("q").addEventListener("input", applyFilters);
   el("statusFilter").addEventListener("change", applyFilters);
   el("btnRefresh").addEventListener("click", loadRows);
+
   el("btnReset").addEventListener("click", () => {
     el("q").value = "";
     el("statusFilter").value = "active";
     applyFilters();
   });
+
   el("detailClose").addEventListener("click", closeDetail);
   el("detailBackdrop").addEventListener("click", closeDetail);
+
+  el("btnQr").addEventListener("click", openQr);
+  el("qrClose").addEventListener("click", closeQr);
+  el("qrBackdrop").addEventListener("click", closeQr);
+  el("qrUrl").addEventListener("click", () => el("qrUrl").select());
+
   document.querySelectorAll("th.sortable").forEach(th => {
     th.addEventListener("click", () => {
       const f = th.dataset.sort;
-      if (sortField === f) sortDir = sortDir === "asc" ? "desc" : "asc";
-      else { sortField = f; sortDir = "asc"; }
+
+      if (sortField === f) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortField = f;
+        sortDir = "asc";
+      }
+
       applyFilters();
     });
   });
@@ -67,12 +95,15 @@ function bind() {
 
 async function loadRows() {
   el("tbody").innerHTML = `<tr><td colspan="9">Henter...</td></tr>`;
+
   const r = await fetch("/api/handovers");
   const j = await r.json();
+
   if (!r.ok || j.error) {
     el("tbody").innerHTML = `<tr><td colspan="9">Fejl: ${esc(j.error || r.status)}</td></tr>`;
     return;
   }
+
   rows = j.value || [];
   applyFilters();
 }
@@ -83,14 +114,18 @@ function applyFilters() {
 
   filtered = rows.filter(r => {
     const active = r.lch_aktiv !== false;
+
     if (status === "active" && !active) return false;
     if (status === "done" && active) return false;
 
     if (!q) return true;
+
     return [
       r.lch_kundenummer,
       r.lch_kundenavn,
       r.lch_produkt,
+      r.lch_produktnr,
+      r.lch_serienr,
       r.lch_ldn,
       r.lch_tekniker,
       r.lch_kommentar
@@ -101,6 +136,7 @@ function applyFilters() {
     const av = String(a[sortField] ?? "").toLowerCase();
     const bv = String(b[sortField] ?? "").toLowerCase();
     const res = av.localeCompare(bv, "da", { numeric: true });
+
     return sortDir === "asc" ? res : -res;
   });
 
@@ -117,6 +153,7 @@ function render() {
 
   el("tbody").innerHTML = filtered.map(r => {
     const imgs = parseImages(r.lch_billeder);
+
     return `
       <tr>
         <td class="checkCol">
@@ -125,7 +162,10 @@ function render() {
         <td>${esc(fmtDate(r.createdon))}</td>
         <td>${esc(r.lch_kundenummer)}</td>
         <td>${esc(r.lch_kundenavn)}</td>
-        <td>${esc(r.lch_produkt)}</td>
+        <td>
+          <div>${esc(r.lch_produkt)}</div>
+          <div style="font-size:12px;color:#6b7280;">${esc(r.lch_produktnr || "")}${r.lch_serienr ? " · " + esc(r.lch_serienr) : ""}</div>
+        </td>
         <td>${esc(r.lch_ldn)}</td>
         <td>${esc(r.lch_tekniker)}</td>
         <td class="num">${imgs.length}</td>
@@ -138,22 +178,34 @@ function render() {
 async function setDone(id, done) {
   const r = await fetch(`/api/handovers?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lch_aktiv: !done })
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      lch_aktiv: !done
+    })
   });
+
   const j = await r.json().catch(() => ({}));
+
   if (!r.ok || j.error) {
     alert("Kunne ikke opdatere: " + (j.error || r.status));
     await loadRows();
     return;
   }
+
   const row = rows.find(x => x.id === id);
-  if (row) row.lch_aktiv = !done;
+
+  if (row) {
+    row.lch_aktiv = !done;
+  }
+
   applyFilters();
 }
 
 function openDetail(id) {
   const r = rows.find(x => x.id === id);
+
   if (!r) return;
 
   const imgs = parseImages(r.lch_billeder);
@@ -161,11 +213,12 @@ function openDetail(id) {
 
   content.innerHTML = `
     <h2>${esc(r.lch_kundenavn || "Handover")}</h2>
+
     <div class="detailGrid">
       ${detail("Kundenr.", r.lch_kundenummer)}
       ${detail("Produkt", r.lch_produkt)}
       ${detail("Produktnr.", r.lch_produktnr)}
-      ${detail("Serienr.", r.lch_serienummer)}
+      ${detail("Serienr.", r.lch_serienr)}
       ${detail("LDN", r.lch_ldn)}
       ${detail("Tekniker", r.lch_tekniker)}
       ${detail("Oprettet", fmtDate(r.createdon))}
@@ -179,23 +232,29 @@ function openDetail(id) {
 
     <div class="detailSection">
       <h3>Billeder</h3>
+
       <div class="modalActions">
         <button type="button" onclick="selectAllImages(true)">Marker alle</button>
         <button type="button" onclick="selectAllImages(false)">Fjern markering</button>
         <button type="button" class="primary" onclick="downloadSelectedImages('${esc(r.id)}')">Download markerede</button>
       </div>
+
       <div class="imageGrid">
-        ${imgs.length ? imgs.map((img, i) => `
-          <div class="imageCard">
-            <a href="${esc(img.url || "#")}" target="_blank" rel="noopener">
-              <img src="${esc(img.url || "")}" alt="">
-            </a>
-            <label>
-              <input class="imageCheck" type="checkbox" data-index="${i}">
-              <span>${esc(img.name || img.path || "Billede")}</span>
-            </label>
-          </div>
-        `).join("") : "<p>Ingen billeder.</p>"}
+        ${
+          imgs.length
+            ? imgs.map((img, i) => `
+                <div class="imageCard">
+                  <a href="${esc(img.url || "#")}" target="_blank" rel="noopener">
+                    <img src="${esc(img.url || "")}" alt="">
+                  </a>
+                  <label>
+                    <input class="imageCheck" type="checkbox" data-index="${i}">
+                    <span>${esc(img.name || img.path || "Billede")}</span>
+                  </label>
+                </div>
+              `).join("")
+            : "<p>Ingen billeder.</p>"
+        }
       </div>
     </div>
   `;
@@ -205,7 +264,12 @@ function openDetail(id) {
 }
 
 function detail(label, value) {
-  return `<div><div class="detailLabel">${esc(label)}</div><div class="detailValue">${esc(value || "")}</div></div>`;
+  return `
+    <div>
+      <div class="detailLabel">${esc(label)}</div>
+      <div class="detailValue">${esc(value || "")}</div>
+    </div>
+  `;
 }
 
 function closeDetail() {
@@ -214,14 +278,18 @@ function closeDetail() {
 }
 
 function selectAllImages(value) {
-  document.querySelectorAll(".imageCheck").forEach(cb => cb.checked = value);
+  document.querySelectorAll(".imageCheck").forEach(cb => {
+    cb.checked = value;
+  });
 }
 
 async function downloadSelectedImages(id) {
   const row = rows.find(x => x.id === id);
+
   if (!row) return;
 
   const imgs = parseImages(row.lch_billeder);
+
   const selected = Array.from(document.querySelectorAll(".imageCheck:checked"))
     .map(cb => imgs[Number(cb.dataset.index)])
     .filter(Boolean);
@@ -233,8 +301,13 @@ async function downloadSelectedImages(id) {
 
   const r = await fetch("/api/downloadimages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ images: selected, zipName: `handover-${row.lch_kundenummer || id}.zip` })
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      images: selected,
+      zipName: `handover-${row.lch_kundenummer || id}.zip`
+    })
   });
 
   if (!r.ok) {
@@ -245,12 +318,31 @@ async function downloadSelectedImages(id) {
 
   const blob = await r.blob();
   const a = document.createElement("a");
+
   a.href = URL.createObjectURL(blob);
   a.download = `handover-${row.lch_kundenummer || id}.zip`;
+
   document.body.appendChild(a);
   a.click();
   a.remove();
+
   URL.revokeObjectURL(a.href);
+}
+
+function openQr() {
+  const handoverUrl = `${location.origin}/handover.html`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=12&data=${encodeURIComponent(handoverUrl)}`;
+
+  el("qrImage").src = qrUrl;
+  el("qrUrl").value = handoverUrl;
+
+  el("qrBackdrop").classList.remove("hidden");
+  el("qrModal").classList.remove("hidden");
+}
+
+function closeQr() {
+  el("qrBackdrop").classList.add("hidden");
+  el("qrModal").classList.add("hidden");
 }
 
 init();
