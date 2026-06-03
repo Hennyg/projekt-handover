@@ -35,6 +35,27 @@ function setStatus(type, msg) {
   s.textContent = msg;
 }
 
+function setSaveStatus(type, msg, percent = 0) {
+  const tile = el("saveStatusTile");
+  const text = el("saveStatusText");
+  const bar = el("saveProgressInner");
+
+  if (!msg) {
+    tile.className = "saveStatusTile hidden";
+    text.textContent = "";
+    bar.style.width = "0%";
+    return;
+  }
+
+  tile.className = `saveStatusTile ${type || ""}`;
+  text.textContent = msg;
+  bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+
+  setTimeout(() => {
+    tile.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 50);
+}
+
 async function init() {
   await loadUser();
   bind();
@@ -140,6 +161,7 @@ function selectCustomer(k) {
   selectedCustomer = k;
   selectedTeam = "";
   selectedProduct = null;
+  setSaveStatus("", "");
 
   el("customerResults").innerHTML = "";
   el("customerSearch").value = "";
@@ -162,6 +184,7 @@ function selectCustomer(k) {
 function selectTeam(team) {
   selectedTeam = team;
   selectedProduct = null;
+  setSaveStatus("", "");
 
   setTeamButtonState();
 
@@ -232,6 +255,7 @@ function loadProductsLocal(kundenr) {
 
 function onProductChange() {
   const val = el("productSelect").value;
+  setSaveStatus("", "");
 
   el("detailsTile").classList.add("hidden");
   el("imageTile").classList.add("hidden");
@@ -338,6 +362,10 @@ function updateSaveVisibility() {
   const imageTileVisible = !el("imageTile").classList.contains("hidden");
 
   el("saveTile").classList.toggle("hidden", !(imageTileVisible && hasImages));
+
+  if (!hasImages) {
+    setSaveStatus("", "");
+  }
 }
 
 function addFiles(fileList) {
@@ -432,7 +460,8 @@ async function saveHandover() {
   }
 
   el("btnSave").disabled = true;
-  setStatus("loading", "Gemmer handover...");
+  setStatus("", "");
+  setSaveStatus("loading", "Opretter handover i Dataverse...", 5);
 
   try {
     const createResp = await fetch("/api/handovers", {
@@ -463,7 +492,8 @@ async function saveHandover() {
     const uploaded = [];
 
     for (let i = 0; i < images.length; i++) {
-      setStatus("loading", `Uploader billede ${i + 1} af ${images.length}...`);
+      const percent = Math.round(10 + ((i + 1) / images.length) * 70);
+      setSaveStatus("loading", `Uploader billede ${i + 1} af ${images.length}...`, percent);
 
       const img = images[i];
       const base64 = await fileToBase64(img.file);
@@ -492,6 +522,8 @@ async function saveHandover() {
     }
 
     if (uploaded.length) {
+      setSaveStatus("loading", "Gemmer billedreferencer...", 90);
+
       const patchResp = await fetch(`/api/handovers?id=${encodeURIComponent(handoverId)}`, {
         method: "PATCH",
         headers: {
@@ -509,10 +541,13 @@ async function saveHandover() {
       }
     }
 
-    setStatus("ok", "Handover er gemt.");
-    resetForm();
+    setSaveStatus("ok", "Handover er gemt.", 100);
+    setTimeout(() => {
+      resetForm();
+      setSaveStatus("ok", "Handover er gemt.", 100);
+    }, 500);
   } catch (e) {
-    setStatus("error", e.message);
+    setSaveStatus("error", e.message, 100);
   } finally {
     el("btnSave").disabled = false;
   }

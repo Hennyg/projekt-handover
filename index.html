@@ -1,1 +1,199 @@
-<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Projekt handover</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/app.css"><style>.nameModal{position:fixed;top:50%;left:50%;width:min(560px,92vw);max-height:90vh;overflow:auto;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.28);z-index:9999;padding:24px}.nameModal h2{margin:0 0 8px 0;font-size:26px}.nameModal p{color:#6b7280;margin:0 0 16px 0}.nameList{display:grid;gap:12px;margin:16px 0}.nameItem{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;border:1px solid #d1d5db;border-radius:12px;padding:10px;background:#f9fafb}.nameItem img{width:92px;height:72px;object-fit:cover;border-radius:8px;background:#e5e7eb}.nameItem label{display:block;font-size:12px;font-weight:800;color:#374151;margin-bottom:5px}.nameItem input{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:9px 10px;font-size:14px;background:#fff}.imageOnlyCheck{justify-content:center;font-weight:700}.rowSelectCol{width:56px;text-align:center!important}.imagesLeft{text-align:left!important}.folderInfo{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:10px;padding:10px;font-size:13px;margin-bottom:12px}@media(max-width:720px){.nameItem{grid-template-columns:1fr}.nameItem img{width:100%;height:150px}}</style></head><body><header class="topbar"><div class="topbar-left"><div class="logoText">PH</div><div class="titleBlock"><div class="appTitle">Projekt handover</div><div class="appSubTitle">Oversigt</div></div></div><div class="topbar-right"><span id="userDisplay"></span><button id="btnQr" type="button" class="navButton">QR</button><a href="/handover.html">Ny handover</a><a href="/.auth/logout?post_logout_redirect_uri=/">Log ud</a></div></header><main class="pageWrap"><section class="toolbar"><input id="q" type="search" placeholder="Søg kunde, kundenr., produkt, LDN, tekniker..."><select id="statusFilter"><option value="active" selected>Aktive</option><option value="done">Færdige</option><option value="all">Alle</option></select><button id="btnReset" type="button">Nulstil</button><div class="toolbarSpacer"></div><span id="countText"></span><button id="btnDownloadRows" type="button">Download billeder</button><button id="btnRefresh" type="button">Opdater</button></section><section class="tableWrap"><table class="dataTable"><thead><tr><th class="checkCol">Færdig</th><th data-sort="createdon" class="sortable">Dato <span class="sortIcon">⇅</span></th><th data-sort="lch_kundenummer" class="sortable">Kundenr. <span class="sortIcon">⇅</span></th><th data-sort="lch_kundenavn" class="sortable">Kunde <span class="sortIcon">⇅</span></th><th data-sort="lch_team" class="sortable">Team <span class="sortIcon">⇅</span></th><th data-sort="lch_produkt" class="sortable">Produkt <span class="sortIcon">⇅</span></th><th data-sort="lch_ldn" class="sortable">LDN <span class="sortIcon">⇅</span></th><th data-sort="lch_tekniker" class="sortable">Tekniker <span class="sortIcon">⇅</span></th><th>Kommentar</th><th class="rowSelectCol"><input id="selectAllRows" type="checkbox" title="Marker alle viste"></th><th class="imagesLeft">Billeder</th><th></th></tr></thead><tbody id="tbody"></tbody></table></section></main><div id="detailBackdrop" class="detailBackdrop hidden"></div><div id="detailDrawer" class="detailDrawer hidden"><button class="detailClose" id="detailClose">✕</button><div id="detailContent"></div></div><div id="qrBackdrop" class="detailBackdrop hidden"></div><div id="qrModal" class="qrModal hidden"><button class="detailClose" id="qrClose">✕</button><h2>QR til handover</h2><p>Scan med telefonen for at åbne tekniker-siden.</p><div class="qrBox"><img id="qrImage" alt="QR kode til handover"></div><input id="qrUrl" type="text" readonly></div><div id="nameBackdrop" class="detailBackdrop hidden"></div><div id="nameModal" class="nameModal hidden"><button class="detailClose" id="nameClose">✕</button><h2>Navngiv og gem billeder</h2><p>Angiv filnavn for hvert markeret billede. Du vælger mappe, når du trykker Gem billeder.</p><div class="folderInfo" id="folderInfo">Mappevalg virker i Edge/Chrome. Hvis browseren ikke understøtter mappevalg, bruges almindelig download.</div><div id="nameList" class="nameList"></div><div class="modalActions"><button id="btnCancelNames" type="button">Annuller</button><button id="btnDownloadNamed" type="button" class="primary">Gem billeder</button></div></div><script src="/assets/index.js"></script></body></html>
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <title>Projekt handover</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/assets/app.css">
+  <style>
+    .nameModal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: min(560px, 92vw);
+      max-height: 90vh;
+      overflow: auto;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.28);
+      z-index: 9999;
+      padding: 24px;
+    }
+    .nameModal h2 { margin: 0 0 8px 0; font-size: 26px; }
+    .nameModal p { color: #6b7280; margin: 0 0 16px 0; }
+    .nameList { display: grid; gap: 12px; margin: 16px 0; }
+    .nameItem {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 10px;
+      background: #f9fafb;
+    }
+    .nameItem img {
+      width: 92px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #e5e7eb;
+    }
+    .nameItem label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: #374151;
+      margin-bottom: 5px;
+    }
+    .nameItem input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .imageOnlyCheck { justify-content: center; font-weight: 700; }
+    .rowSelectCol { width: 56px; text-align: center !important; }
+    .imagesLeft { text-align: left !important; }
+    .folderInfo {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .downloadProgress {
+      margin: 16px 0;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .downloadProgressText {
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .progressOuter {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(29, 78, 216, .16);
+      overflow: hidden;
+    }
+    .progressInner {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: #1d4ed8;
+      transition: width .2s ease;
+    }
+    @media (max-width: 720px) {
+      .nameItem { grid-template-columns: 1fr; }
+      .nameItem img { width: 100%; height: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logoText">PH</div>
+      <div class="titleBlock">
+        <div class="appTitle">Projekt handover</div>
+        <div class="appSubTitle">Oversigt</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="userDisplay"></span>
+      <button id="btnQr" type="button" class="navButton">QR</button>
+      <a href="/handover.html">Ny handover</a>
+      <a href="/.auth/logout?post_logout_redirect_uri=/">Log ud</a>
+    </div>
+  </header>
+
+  <main class="pageWrap">
+    <section class="toolbar">
+      <input id="q" type="search" placeholder="Søg kunde, kundenr., produkt, LDN, tekniker...">
+      <select id="statusFilter">
+        <option value="active" selected>Aktive</option>
+        <option value="done">Færdige</option>
+        <option value="all">Alle</option>
+      </select>
+      <button id="btnReset" type="button">Nulstil</button>
+      <div class="toolbarSpacer"></div>
+      <span id="countText"></span>
+      <button id="btnDownloadRows" type="button">Download billeder</button>
+      <button id="btnRefresh" type="button">Opdater</button>
+    </section>
+
+    <section class="tableWrap">
+      <table class="dataTable">
+        <thead>
+          <tr>
+            <th class="checkCol">Færdig</th>
+            <th data-sort="createdon" class="sortable">Dato <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_kundenummer" class="sortable">Kundenr. <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_kundenavn" class="sortable">Kunde <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_team" class="sortable">Team <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_produkt" class="sortable">Produkt <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_ldn" class="sortable">LDN <span class="sortIcon">⇅</span></th>
+            <th data-sort="lch_tekniker" class="sortable">Tekniker <span class="sortIcon">⇅</span></th>
+            <th>Kommentar</th>
+            <th class="rowSelectCol"><input id="selectAllRows" type="checkbox" title="Marker alle viste"></th>
+            <th class="imagesLeft">Billeder</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="detailBackdrop" class="detailBackdrop hidden"></div>
+  <div id="detailDrawer" class="detailDrawer hidden">
+    <button class="detailClose" id="detailClose">✕</button>
+    <div id="detailContent"></div>
+  </div>
+
+  <div id="qrBackdrop" class="detailBackdrop hidden"></div>
+  <div id="qrModal" class="qrModal hidden">
+    <button class="detailClose" id="qrClose">✕</button>
+    <h2>QR til handover</h2>
+    <p>Scan med telefonen for at åbne tekniker-siden.</p>
+    <div class="qrBox">
+      <img id="qrImage" alt="QR kode til handover">
+    </div>
+    <input id="qrUrl" type="text" readonly>
+  </div>
+
+  <div id="nameBackdrop" class="detailBackdrop hidden"></div>
+  <div id="nameModal" class="nameModal hidden">
+    <button class="detailClose" id="nameClose">✕</button>
+    <div id="nameContent">
+      <h2>Navngiv og gem billeder</h2>
+      <p>Angiv filnavn for hvert markeret billede. Du vælger mappe, når du trykker Gem billeder.</p>
+      <div class="folderInfo" id="folderInfo">
+        Mappevalg virker i Edge/Chrome. Hvis browseren ikke understøtter mappevalg, bruges almindelig download.
+      </div>
+      <div id="nameList" class="nameList"></div>
+      <div class="modalActions">
+        <button id="btnCancelNames" type="button">Annuller</button>
+        <button id="btnDownloadNamed" type="button" class="primary">Gem billeder</button>
+      </div>
+    </div>
+    <div id="downloadProgress" class="downloadProgress hidden">
+      <div id="downloadProgressText" class="downloadProgressText"></div>
+      <div class="progressOuter">
+        <div id="downloadProgressInner" class="progressInner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/index.js"></script>
+</body>
+</html>
