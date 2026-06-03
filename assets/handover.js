@@ -78,12 +78,13 @@ async function loadKundeData() {
 function bind() {
   el("customerSearch").addEventListener("input", onCustomerSearch);
   el("productSelect").addEventListener("change", onProductChange);
-  el("manualProduct").addEventListener("input", onManualProductInput);
+  el("manualProduct").addEventListener("input", updateProductNextVisibility);
   el("ldn").addEventListener("input", updateDetailsNextVisibility);
 
   el("btnTeamMilk").addEventListener("click", () => selectTeam("Milk & cooling"));
   el("btnTeamFeed").addEventListener("click", () => selectTeam("Feed & barn"));
 
+  el("btnProductNext").addEventListener("click", showDetailsStepFromManualProduct);
   el("btnDetailsNext").addEventListener("click", showImageStep);
 
   el("btnPick").addEventListener("click", () => el("fileAlbum").click());
@@ -168,6 +169,7 @@ function selectTeam(team) {
   el("detailsTile").classList.add("hidden");
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
+  el("btnProductNext").classList.add("hidden");
 
   loadProductsLocal(selectedCustomer.kundenr);
 
@@ -195,6 +197,7 @@ function loadProductsLocal(kundenr) {
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
   el("btnDetailsNext").classList.add("hidden");
+  el("btnProductNext").classList.add("hidden");
 
   if (!produkter.length) {
     el("productSelect").innerHTML = `<option value="__manual__">Ingen produkter fundet - tilføj</option>`;
@@ -234,6 +237,7 @@ function onProductChange() {
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
   el("btnDetailsNext").classList.add("hidden");
+  el("btnProductNext").classList.add("hidden");
 
   if (val === "__manual__") {
     selectedProduct = {
@@ -243,7 +247,7 @@ function onProductChange() {
     };
     el("manualProduct").classList.remove("hidden");
     el("manualProduct").focus();
-    onManualProductInput();
+    updateProductNextVisibility();
     return;
   }
 
@@ -258,26 +262,35 @@ function onProductChange() {
   }
 }
 
-function onManualProductInput() {
-  const hasManualProduct = el("manualProduct").value.trim().length > 0;
+function updateProductNextVisibility() {
   const isManualMode = !el("manualProduct").classList.contains("hidden");
+  const hasManualProduct = el("manualProduct").value.trim().length > 0;
 
-  if (isManualMode && hasManualProduct) {
-    selectedProduct = {
-      produkt: "",
-      produktnr: "",
-      serienr: ""
-    };
-    showDetailsStep();
-    return;
-  }
+  el("btnProductNext").classList.toggle("hidden", !(isManualMode && hasManualProduct));
 
-  if (isManualMode && !hasManualProduct) {
+  if (!hasManualProduct) {
     el("detailsTile").classList.add("hidden");
     el("imageTile").classList.add("hidden");
     el("saveTile").classList.add("hidden");
     el("btnDetailsNext").classList.add("hidden");
   }
+}
+
+function showDetailsStepFromManualProduct() {
+  const manualProduct = el("manualProduct").value.trim();
+
+  if (!manualProduct) {
+    el("manualProduct").focus();
+    return;
+  }
+
+  selectedProduct = {
+    produkt: "",
+    produktnr: "",
+    serienr: ""
+  };
+
+  showDetailsStep();
 }
 
 function showDetailsStep() {
@@ -520,6 +533,7 @@ function resetForm() {
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
   el("btnDetailsNext").classList.add("hidden");
+  el("btnProductNext").classList.add("hidden");
 
   el("customerSearch").value = "";
   el("productSelect").innerHTML = "";
