@@ -28,8 +28,6 @@ function cell(row, i) {
 
   if (v === null || v === undefined) return "";
 
-  // Almindelige tal må ikke automatisk blive til datoer.
-  // Dato-kolonner håndteres i dateCell().
   if (typeof v === "number") {
     return String(v).trim();
   }
@@ -92,7 +90,8 @@ function parseWorkbook(buf, lastModified) {
   const produktSeen = new Set();
   const firstCustomerRowSeen = new Set();
 
-  // Install. dato i kolonne J skal være rigtig dato: xx-xx-xxxx
+  // KORREKT FILTER:
+  // Produktet skal kun med, hvis Install. dato i kolonne J er xx-xx-xxxx.
   const validInstallDato = /^\d{2}-\d{2}-\d{4}$/;
 
   for (const row of dataRows) {
@@ -130,7 +129,7 @@ function parseWorkbook(buf, lastModified) {
       });
     }
 
-    // Første record pr. kunde er kun kundens info-linje og må ikke medtages som produkt.
+    // Første record pr. kunde er kun info-linje og skal ikke med som produkt.
     if (!firstCustomerRowSeen.has(kundeKey)) {
       firstCustomerRowSeen.add(kundeKey);
       continue;
@@ -138,7 +137,8 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // Produktet skal kun med, hvis Install. dato i kolonne J er xx-xx-xxxx.
+    // OBS: Dette er IKKE vendt.
+    // Linjer uden xx-xx-xxxx springes over.
     if (!validInstallDato.test(installDato)) continue;
 
     const produktKey = [
