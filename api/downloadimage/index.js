@@ -1,0 +1,65 @@
+// api/downloadimage/index.js
+const { firstEnv, required } = require("../_env");
+const { getGraphToken } = require("../_graph");
+
+const SITE_ID = () => required("DELING_SPO_SITE_ID", firstEnv("DELING_SPO_SITE_ID"));
+const DRIVE_ID = () => required("DELING_SPO_DRIVE_ID", firstEnv("DELING_SPO_DRIVE_ID"));
+
+function safeFileName(s) {
+  const name = String(s || "billede.jpg")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+
+  return name || "billede.jpg";
+}
+
+module.exports = async function (context, req) {
+  try {
+    const image = req.body?.image || {};
+    const fileName = safeFileName(req.body?.fileName || image.name || "billede.jpg");
+
+    if (!image.path) {
+      context.res = {
+        status: 400,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: { error: "image.path mangler" }
+      };
+      return;
+    }
+
+    const token = await getGraphToken();
+
+    const url =
+      `https://graph.microsoft.com/v1.0/sites/${SITE_ID()}` +
+      `/drives/${DRIVE_ID()}/root:/${encodeURI(image.path)}:/content`;
+
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!r.ok) {
+      throw new Error(`Graph download fejl ${r.status}: ${await r.text()}`);
+    }
+
+    const buf = Buffer.from(await r.arrayBuffer());
+
+    context.res = {
+      status: 200,
+      isRaw: true,
+      headers: {
+        "Content-Type": r.headers.get("content-type") || "application/octet-stream",
+        "Content-Disposition": `attachment; filename="${fileName}"`
+      },
+      body: buf
+    };
+  } catch (e) {
+    context.log("downloadimage error:", e.message);
+    context.res = {
+      status: 500,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: { error: e.message }
+    };
+  }
+};

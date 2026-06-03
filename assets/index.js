@@ -3,6 +3,7 @@ let rows = [];
 let filtered = [];
 let sortField = "createdon";
 let sortDir = "desc";
+let pendingDownload = null;
 
 const el = id => document.getElementById(id);
 
@@ -18,11 +19,8 @@ function esc(s) {
 
 function fmtDate(s) {
   if (!s) return "";
-
   const d = new Date(s);
-
   if (Number.isNaN(d.getTime())) return s;
-
   return d.toLocaleString("da-DK", {
     day: "2-digit",
     month: "2-digit",
@@ -35,13 +33,34 @@ function fmtDate(s) {
 function parseImages(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v;
-
   try {
     const j = JSON.parse(v);
     return Array.isArray(j) ? j : [];
   } catch {
     return [];
   }
+}
+
+function extensionFromName(name) {
+  const s = String(name || "").trim();
+  const m = s.match(/\.([a-zA-Z0-9]{2,8})$/);
+  return m ? "." + m[1].toLowerCase() : ".jpg";
+}
+
+function cleanFileBaseName(name) {
+  return String(name || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\.+$/g, "")
+    .slice(0, 90);
+}
+
+function buildDownloadFileName(inputName, originalName, index) {
+  const ext = extensionFromName(originalName);
+  let base = cleanFileBaseName(inputName);
+  if (!base) base = `Billede ${index + 1}`;
+  return base.toLowerCase().endsWith(ext.toLowerCase()) ? base : base + ext;
 }
 
 async function init() {
@@ -77,30 +96,32 @@ function bind() {
   el("qrBackdrop").addEventListener("click", closeQr);
   el("qrUrl").addEventListener("click", () => el("qrUrl").select());
 
+  el("nameClose").addEventListener("click", closeNameModal);
+  el("btnCancelNames").addEventListener("click", closeNameModal);
+  el("nameBackdrop").addEventListener("click", closeNameModal);
+  el("btnDownloadNamed").addEventListener("click", downloadNamedImages);
+
   document.querySelectorAll("th.sortable").forEach(th => {
     th.addEventListener("click", () => {
       const f = th.dataset.sort;
-
-      if (sortField === f) {
-        sortDir = sortDir === "asc" ? "desc" : "asc";
-      } else {
+      if (sortField === f) sortDir = sortDir === "asc" ? "desc" : "asc";
+      else {
         sortField = f;
         sortDir = "asc";
       }
-
       applyFilters();
     });
   });
 }
 
 async function loadRows() {
-  el("tbody").innerHTML = `<tr><td colspan="9">Henter...</td></tr>`;
+  el("tbody").innerHTML = `<tr><td colspan="10">Henter...</td></tr>`;
 
   const r = await fetch("/api/handovers");
   const j = await r.json();
 
   if (!r.ok || j.error) {
-    el("tbody").innerHTML = `<tr><td colspan="9">Fejl: ${esc(j.error || r.status)}</td></tr>`;
+    el("tbody").innerHTML = `<tr><td colspan="10">Fejl: ${esc(j.error || r.status)}</td></tr>`;
     return;
   }
 
@@ -114,10 +135,8 @@ function applyFilters() {
 
   filtered = rows.filter(r => {
     const active = r.lch_aktiv !== false;
-
     if (status === "active" && !active) return false;
     if (status === "done" && active) return false;
-
     if (!q) return true;
 
     return [
@@ -136,7 +155,6 @@ function applyFilters() {
     const av = String(a[sortField] ?? "").toLowerCase();
     const bv = String(b[sortField] ?? "").toLowerCase();
     const res = av.localeCompare(bv, "da", { numeric: true });
-
     return sortDir === "asc" ? res : -res;
   });
 
@@ -147,12 +165,13 @@ function render() {
   el("countText").textContent = `${filtered.length} vist / ${rows.length} total`;
 
   if (!filtered.length) {
-    el("tbody").innerHTML = `<tr><td colspan="9">Ingen linjer fundet</td></tr>`;
+    el("tbody").innerHTML = `<tr><td colspan="10">Ingen linjer fundet</td></tr>`;
     return;
   }
 
   el("tbody").innerHTML = filtered.map(r => {
     const imgs = parseImages(r.lch_billeder);
+    const hasComment = String(r.lch_kommentar || "").trim().length > 0;
 
     return `
       <tr>
@@ -168,6 +187,7 @@ function render() {
         </td>
         <td>${esc(r.lch_ldn)}</td>
         <td>${esc(r.lch_tekniker)}</td>
+        <td>${hasComment ? "Se vis" : "Ingen"}</td>
         <td class="num">${imgs.length}</td>
         <td><button type="button" onclick="openDetail('${esc(r.id)}')">Vis</button></td>
       </tr>
@@ -178,12 +198,8 @@ function render() {
 async function setDone(id, done) {
   const r = await fetch(`/api/handovers?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      lch_aktiv: !done
-    })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lch_aktiv: !done })
   });
 
   const j = await r.json().catch(() => ({}));
@@ -195,17 +211,13 @@ async function setDone(id, done) {
   }
 
   const row = rows.find(x => x.id === id);
-
-  if (row) {
-    row.lch_aktiv = !done;
-  }
+  if (row) row.lch_aktiv = !done;
 
   applyFilters();
 }
 
 function openDetail(id) {
   const r = rows.find(x => x.id === id);
-
   if (!r) return;
 
   const imgs = parseImages(r.lch_billeder);
@@ -236,7 +248,7 @@ function openDetail(id) {
       <div class="modalActions">
         <button type="button" onclick="selectAllImages(true)">Marker alle</button>
         <button type="button" onclick="selectAllImages(false)">Fjern markering</button>
-        <button type="button" class="primary" onclick="downloadSelectedImages('${esc(r.id)}')">Download markerede</button>
+        <button type="button" class="primary" onclick="startNamedDownload('${esc(r.id)}')">Download markerede</button>
       </div>
 
       <div class="imageGrid">
@@ -247,9 +259,9 @@ function openDetail(id) {
                   <a href="${esc(img.url || "#")}" target="_blank" rel="noopener">
                     <img src="${esc(img.url || "")}" alt="">
                   </a>
-                  <label>
+                  <label class="imageOnlyCheck">
                     <input class="imageCheck" type="checkbox" data-index="${i}">
-                    <span>${esc(img.name || img.path || "Billede")}</span>
+                    <span>Vælg</span>
                   </label>
                 </div>
               `).join("")
@@ -278,55 +290,107 @@ function closeDetail() {
 }
 
 function selectAllImages(value) {
-  document.querySelectorAll(".imageCheck").forEach(cb => {
-    cb.checked = value;
-  });
+  document.querySelectorAll(".imageCheck").forEach(cb => cb.checked = value);
 }
 
-async function downloadSelectedImages(id) {
+function startNamedDownload(id) {
   const row = rows.find(x => x.id === id);
-
   if (!row) return;
 
   const imgs = parseImages(row.lch_billeder);
 
   const selected = Array.from(document.querySelectorAll(".imageCheck:checked"))
-    .map(cb => imgs[Number(cb.dataset.index)])
-    .filter(Boolean);
+    .map(cb => {
+      const index = Number(cb.dataset.index);
+      return { index, image: imgs[index] };
+    })
+    .filter(x => x.image);
 
   if (!selected.length) {
     alert("Marker mindst ét billede.");
     return;
   }
 
-  const r = await fetch("/api/downloadimages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      images: selected,
-      zipName: `handover-${row.lch_kundenummer || id}.zip`
-    })
-  });
+  pendingDownload = { row, selected };
 
-  if (!r.ok) {
-    const j = await r.json().catch(() => ({}));
-    alert("Download fejlede: " + (j.error || r.status));
-    return;
+  el("nameList").innerHTML = selected.map((x, i) => {
+    const defaultName = `${row.lch_kundenummer || "kunde"} - ${row.lch_produkt || "produkt"} - ${i + 1}`;
+    return `
+      <div class="nameItem">
+        <img src="${esc(x.image.url || "")}" alt="">
+        <div>
+          <label>Filnavn ${i + 1}</label>
+          <input class="nameInput" type="text" value="${esc(defaultName)}" data-pos="${i}">
+          <div class="hint">Original filtype bevares automatisk</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  el("nameBackdrop").classList.remove("hidden");
+  el("nameModal").classList.remove("hidden");
+
+  const first = document.querySelector(".nameInput");
+  if (first) {
+    first.focus();
+    first.select();
   }
+}
 
-  const blob = await r.blob();
-  const a = document.createElement("a");
+function closeNameModal() {
+  pendingDownload = null;
+  el("nameBackdrop").classList.add("hidden");
+  el("nameModal").classList.add("hidden");
+}
 
-  a.href = URL.createObjectURL(blob);
-  a.download = `handover-${row.lch_kundenummer || id}.zip`;
+async function downloadNamedImages() {
+  if (!pendingDownload) return;
 
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const inputs = Array.from(document.querySelectorAll(".nameInput"));
+  const selected = pendingDownload.selected;
 
-  URL.revokeObjectURL(a.href);
+  el("btnDownloadNamed").disabled = true;
+  el("btnDownloadNamed").textContent = "Downloader...";
+
+  try {
+    for (let i = 0; i < selected.length; i++) {
+      const item = selected[i];
+      const input = inputs[i];
+      const fileName = buildDownloadFileName(input?.value || "", item.image.name || item.image.path || "", i);
+
+      const r = await fetch("/api/downloadimage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: item.image, fileName })
+      });
+
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `Download fejl ${r.status}`);
+      }
+
+      const blob = await r.blob();
+      const a = document.createElement("a");
+
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+    }
+
+    closeNameModal();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    el("btnDownloadNamed").disabled = false;
+    el("btnDownloadNamed").textContent = "Download billeder";
+  }
 }
 
 function openQr() {

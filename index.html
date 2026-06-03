@@ -5,6 +5,65 @@
   <title>Projekt handover</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/app.css">
+  <style>
+    .nameModal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: min(560px, 92vw);
+      max-height: 90vh;
+      overflow: auto;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.28);
+      z-index: 9999;
+      padding: 24px;
+    }
+    .nameModal h2 { margin: 0 0 8px 0; font-size: 26px; }
+    .nameModal p { color: #6b7280; margin: 0 0 16px 0; }
+    .nameList { display: grid; gap: 12px; margin: 16px 0; }
+    .nameItem {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 10px;
+      background: #f9fafb;
+    }
+    .nameItem img {
+      width: 92px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #e5e7eb;
+    }
+    .nameItem label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: #374151;
+      margin-bottom: 5px;
+    }
+    .nameItem input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .imageOnlyCheck {
+      justify-content: center;
+      font-weight: 700;
+    }
+    @media (max-width: 720px) {
+      .nameItem { grid-template-columns: 1fr; }
+      .nameItem img { width: 100%; height: 150px; }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -48,6 +107,7 @@
             <th data-sort="lch_produkt" class="sortable">Produkt <span class="sortIcon">⇅</span></th>
             <th data-sort="lch_ldn" class="sortable">LDN <span class="sortIcon">⇅</span></th>
             <th data-sort="lch_tekniker" class="sortable">Tekniker <span class="sortIcon">⇅</span></th>
+            <th>Kommentar</th>
             <th class="num">Billeder</th>
             <th></th>
           </tr>
@@ -72,6 +132,18 @@
       <img id="qrImage" alt="QR kode til handover">
     </div>
     <input id="qrUrl" type="text" readonly>
+  </div>
+
+  <div id="nameBackdrop" class="detailBackdrop hidden"></div>
+  <div id="nameModal" class="nameModal hidden">
+    <button class="detailClose" id="nameClose">✕</button>
+    <h2>Navngiv billeder</h2>
+    <p>Angiv filnavn for hvert markeret billede. Billederne downloades enkeltvis.</p>
+    <div id="nameList" class="nameList"></div>
+    <div class="modalActions">
+      <button id="btnCancelNames" type="button">Annuller</button>
+      <button id="btnDownloadNamed" type="button" class="primary">Download billeder</button>
+    </div>
   </div>
 
   <script src="/assets/index.js"></script>
