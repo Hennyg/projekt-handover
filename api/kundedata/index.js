@@ -101,7 +101,7 @@ function parseWorkbook(buf, lastModified) {
     }
 
     if (!produkt) continue;
-    if (!validInstallDato.test(installDato)) continue;
+    if (validInstallDato.test(installDato)) continue;
 
     const produktKey = [kundenr, produkt, produktnr, serienr, installDato].join("|").toLowerCase();
     if (produktSeen.has(produktKey)) continue;
