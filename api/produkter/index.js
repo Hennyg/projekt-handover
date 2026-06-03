@@ -74,12 +74,12 @@ module.exports = async function (context, req) {
       const customerMatch = kundenr
         ? String(p.kundenr || "").trim().toLowerCase() === kundenr
         : String(p.kundenavn || "").trim().toLowerCase() === kundenavn;
-
+    
       if (!customerMatch) return false;
-      if (!validSerial.test(String(p.serienr || "").trim())) return false;
+      if (!validSerial.test(String(p.installDato || "").trim())) return false;
       if (!p.produkt) return false;
-
-      const key = [p.produkt, p.produktnr, p.serienr].join("|").toLowerCase();
+    
+      const key = [p.produkt, p.produktnr, p.serienr, p.installDato].join("|").toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
