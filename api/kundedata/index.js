@@ -28,6 +28,8 @@ function cell(row, i) {
 
   if (v === null || v === undefined) return "";
 
+  // Almindelige tal må ikke automatisk blive til datoer.
+  // Dato-kolonner håndteres i dateCell().
   if (typeof v === "number") {
     return String(v).trim();
   }
@@ -91,21 +93,21 @@ function parseWorkbook(buf, lastModified) {
   const firstCustomerRowSeen = new Set();
 
   // KORREKT FILTER:
-  // Produktet skal kun med, hvis Install. dato i kolonne J er xx-xx-xxxx.
+  // Produktet skal kun med, hvis Install. dato i kolonne J ER xx-xx-xxxx.
   const validInstallDato = /^\d{2}-\d{2}-\d{4}$/;
 
   for (const row of dataRows) {
-    const kundenavn = cell(row, 0);
-    const adresse = cell(row, 1);
-    const postnr = cell(row, 2);
-    const bynavn = cell(row, 3);
-    const omraade = cell(row, 4);
-    const kundenr = cell(row, 5);
+    const kundenavn = cell(row, 0);       // A
+    const adresse = cell(row, 1);         // B
+    const postnr = cell(row, 2);          // C
+    const bynavn = cell(row, 3);          // D
+    const omraade = cell(row, 4);         // E
+    const kundenr = cell(row, 5);         // F
 
-    const produkt = cell(row, 6);
-    const produktnr = cell(row, 7);
-    const serienr = cell(row, 8);
-    const installDato = dateCell(row, 9);
+    const produkt = cell(row, 6);         // G
+    const produktnr = cell(row, 7);       // H
+    const serienr = cell(row, 8);         // I
+    const installDato = dateCell(row, 9); // J
     const currentInstDato = dateCell(row, 10);
     const garantiIndtil = dateCell(row, 11);
     const chr = cell(row, 12);
@@ -137,8 +139,8 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // OBS: Dette er IKKE vendt.
-    // Linjer uden xx-xx-xxxx springes over.
+    // OBS: Denne må ikke vendes.
+    // Linjer uden xx-xx-xxxx i Install. dato springes over.
     if (!validInstallDato.test(installDato)) continue;
 
     const produktKey = [
