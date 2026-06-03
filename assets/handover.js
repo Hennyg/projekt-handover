@@ -78,6 +78,7 @@ async function loadKundeData() {
 function bind() {
   el("customerSearch").addEventListener("input", onCustomerSearch);
   el("productSelect").addEventListener("change", onProductChange);
+  el("ldn").addEventListener("input", updateDetailsNextVisibility);
 
   el("btnTeamMilk").addEventListener("click", () => selectTeam("Milk & cooling"));
   el("btnTeamFeed").addEventListener("click", () => selectTeam("Feed & barn"));
@@ -221,6 +222,7 @@ function onProductChange() {
   el("detailsTile").classList.add("hidden");
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
+  el("btnDetailsNext").classList.add("hidden");
 
   if (val === "__manual__") {
     selectedProduct = {
@@ -245,11 +247,23 @@ function onProductChange() {
 
 function showDetailsStep() {
   el("detailsTile").classList.remove("hidden");
+  updateDetailsNextVisibility();
 
   setTimeout(() => {
     el("detailsTile").scrollIntoView({ behavior: "smooth", block: "start" });
     el("ldn").focus();
   }, 50);
+}
+
+function updateDetailsNextVisibility() {
+  const hasLdn = el("ldn").value.trim().length > 0;
+
+  el("btnDetailsNext").classList.toggle("hidden", !hasLdn);
+
+  if (!hasLdn) {
+    el("imageTile").classList.add("hidden");
+    el("saveTile").classList.add("hidden");
+  }
 }
 
 function showImageStep() {
@@ -264,11 +278,18 @@ function showImageStep() {
   setStatus("", "");
 
   el("imageTile").classList.remove("hidden");
-  el("saveTile").classList.remove("hidden");
+  updateSaveVisibility();
 
   setTimeout(() => {
     el("imageTile").scrollIntoView({ behavior: "smooth", block: "start" });
   }, 50);
+}
+
+function updateSaveVisibility() {
+  const hasImages = images.length > 0;
+  const imageTileVisible = !el("imageTile").classList.contains("hidden");
+
+  el("saveTile").classList.toggle("hidden", !(imageTileVisible && hasImages));
 }
 
 function addFiles(fileList) {
@@ -288,6 +309,7 @@ function addFiles(fileList) {
   el("fileCamera").value = "";
 
   renderPreview();
+  updateSaveVisibility();
 }
 
 function renderPreview() {
@@ -308,6 +330,7 @@ function removeImage(i) {
 
   images.splice(i, 1);
   renderPreview();
+  updateSaveVisibility();
 }
 
 function fileToBase64(file) {
@@ -331,6 +354,10 @@ async function saveHandover() {
 
   if (!selectedTeam) {
     return setStatus("error", "Vælg team.");
+  }
+
+  if (!images.length) {
+    return setStatus("error", "Tilføj mindst ét billede.");
   }
 
   let produkt = "";
@@ -457,6 +484,7 @@ function resetForm() {
   el("detailsTile").classList.add("hidden");
   el("imageTile").classList.add("hidden");
   el("saveTile").classList.add("hidden");
+  el("btnDetailsNext").classList.add("hidden");
 
   el("customerSearch").value = "";
   el("productSelect").innerHTML = "";
