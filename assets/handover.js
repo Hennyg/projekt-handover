@@ -78,6 +78,7 @@ async function loadKundeData() {
 function bind() {
   el("customerSearch").addEventListener("input", onCustomerSearch);
   el("productSelect").addEventListener("change", onProductChange);
+  el("manualProduct").addEventListener("input", onManualProductInput);
   el("ldn").addEventListener("input", updateDetailsNextVisibility);
 
   el("btnTeamMilk").addEventListener("click", () => selectTeam("Milk & cooling"));
@@ -190,6 +191,11 @@ function loadProductsLocal(kundenr) {
   el("manualProduct").value = "";
   el("productSelect").dataset.products = JSON.stringify(produkter);
 
+  el("detailsTile").classList.add("hidden");
+  el("imageTile").classList.add("hidden");
+  el("saveTile").classList.add("hidden");
+  el("btnDetailsNext").classList.add("hidden");
+
   if (!produkter.length) {
     el("productSelect").innerHTML = `<option value="__manual__">Ingen produkter fundet - tilføj</option>`;
     el("manualProduct").classList.remove("hidden");
@@ -199,6 +205,11 @@ function loadProductsLocal(kundenr) {
       produktnr: "",
       serienr: ""
     };
+
+    setTimeout(() => {
+      el("manualProduct").focus();
+    }, 50);
+
     return;
   }
 
@@ -231,17 +242,41 @@ function onProductChange() {
       serienr: ""
     };
     el("manualProduct").classList.remove("hidden");
-    showDetailsStep();
+    el("manualProduct").focus();
+    onManualProductInput();
     return;
   }
 
   el("manualProduct").classList.add("hidden");
+  el("manualProduct").value = "";
 
   const products = JSON.parse(el("productSelect").dataset.products || "[]");
   selectedProduct = products[Number(val)] || null;
 
   if (selectedProduct) {
     showDetailsStep();
+  }
+}
+
+function onManualProductInput() {
+  const hasManualProduct = el("manualProduct").value.trim().length > 0;
+  const isManualMode = !el("manualProduct").classList.contains("hidden");
+
+  if (isManualMode && hasManualProduct) {
+    selectedProduct = {
+      produkt: "",
+      produktnr: "",
+      serienr: ""
+    };
+    showDetailsStep();
+    return;
+  }
+
+  if (isManualMode && !hasManualProduct) {
+    el("detailsTile").classList.add("hidden");
+    el("imageTile").classList.add("hidden");
+    el("saveTile").classList.add("hidden");
+    el("btnDetailsNext").classList.add("hidden");
   }
 }
 
@@ -489,6 +524,7 @@ function resetForm() {
   el("customerSearch").value = "";
   el("productSelect").innerHTML = "";
   el("manualProduct").value = "";
+  el("manualProduct").classList.add("hidden");
   el("ldn").value = "";
   el("comment").value = "";
 
