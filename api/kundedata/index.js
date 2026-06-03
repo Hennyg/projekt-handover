@@ -25,33 +25,20 @@ function json(context, status, body) {
 
 function cell(row, i) {
   const v = row[i];
-
   if (v === null || v === undefined) return "";
-
-  // Almindelige tal må ikke automatisk blive til datoer.
-  // Dato-kolonner håndteres i dateCell().
-  if (typeof v === "number") {
-    return String(v).trim();
-  }
-
+  if (typeof v === "number") return String(v).trim();
   return String(v).trim();
 }
 
 function dateCell(row, i) {
   const v = row[i];
-
   if (v === null || v === undefined || v === "") return "";
-
-  if (typeof v === "number") {
-    return XLSX.SSF.format("dd-mm-yyyy", v);
-  }
-
+  if (typeof v === "number") return XLSX.SSF.format("dd-mm-yyyy", v);
   return String(v).trim();
 }
 
 async function downloadExcel() {
   const token = await getGraphToken();
-
   const base = `https://graph.microsoft.com/v1.0/sites/${SPO_SITE_ID()}/drives/${SPO_DRIVE_ID()}/root:/${EXCEL_PATH()}`;
 
   const [metaR, fileR] = await Promise.all([
@@ -60,15 +47,12 @@ async function downloadExcel() {
   ]);
 
   let lastModified = null;
-
   if (metaR.ok) {
     const meta = await metaR.json();
     lastModified = meta.lastModifiedDateTime || null;
   }
 
-  if (!fileR.ok) {
-    throw new Error(`Excel download fejl ${fileR.status}: ${await fileR.text()}`);
-  }
+  if (!fileR.ok) throw new Error(`Excel download fejl ${fileR.status}: ${await fileR.text()}`);
 
   return {
     buf: Buffer.from(await fileR.arrayBuffer()),
@@ -79,10 +63,7 @@ async function downloadExcel() {
 function parseWorkbook(buf, lastModified) {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
-
-  if (!ws) {
-    throw new Error("Ingen ark fundet i Excel-filen.");
-  }
+  if (!ws) throw new Error("Ingen ark fundet i Excel-filen.");
 
   const rows = XLSX.utils.sheet_to_json(ws, { defval: "", header: 1 });
   const dataRows = rows.slice(2);
@@ -97,17 +78,17 @@ function parseWorkbook(buf, lastModified) {
   const validInstallDato = /^\d{2}-\d{2}-\d{4}$/;
 
   for (const row of dataRows) {
-    const kundenavn = cell(row, 0);       // A
-    const adresse = cell(row, 1);         // B
-    const postnr = cell(row, 2);          // C
-    const bynavn = cell(row, 3);          // D
-    const omraade = cell(row, 4);         // E
-    const kundenr = cell(row, 5);         // F
+    const kundenavn = cell(row, 0);
+    const adresse = cell(row, 1);
+    const postnr = cell(row, 2);
+    const bynavn = cell(row, 3);
+    const omraade = cell(row, 4);
+    const kundenr = cell(row, 5);
 
-    const produkt = cell(row, 6);         // G
-    const produktnr = cell(row, 7);       // H
-    const serienr = cell(row, 8);         // I
-    const installDato = dateCell(row, 9); // J
+    const produkt = cell(row, 6);
+    const produktnr = cell(row, 7);
+    const serienr = cell(row, 8);
+    const installDato = dateCell(row, 9);
     const currentInstDato = dateCell(row, 10);
     const garantiIndtil = dateCell(row, 11);
     const chr = cell(row, 12);
@@ -139,18 +120,10 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // OBS: Denne må ikke vendes.
-    // Linjer uden xx-xx-xxxx i Install. dato springes over.
+    // Denne må ikke vendes: linjer uden xx-xx-xxxx i Install. dato springes over.
     if (!validInstallDato.test(installDato)) continue;
 
-    const produktKey = [
-      kundenr,
-      produkt,
-      produktnr,
-      serienr,
-      installDato
-    ].join("|").toLowerCase();
-
+    const produktKey = [kundenr, produkt, produktnr, serienr, installDato].join("|").toLowerCase();
     if (produktSeen.has(produktKey)) continue;
     produktSeen.add(produktKey);
 
@@ -189,20 +162,17 @@ function parseWorkbook(buf, lastModified) {
 
 async function getData() {
   const now = Date.now();
-
   if (!cache || now - cacheTime > CACHE_TTL) {
     const { buf, lastModified } = await downloadExcel();
     cache = parseWorkbook(buf, lastModified);
     cacheTime = now;
   }
-
   return cache;
 }
 
 module.exports = async function (context, req) {
   try {
     const data = await getData();
-
     return json(context, 200, {
       lastModified: data.lastModified,
       kunder: data.kunder,
@@ -212,11 +182,6 @@ module.exports = async function (context, req) {
     });
   } catch (e) {
     context.log("kundedata error:", e.message);
-
-    return json(context, 500, {
-      error: e.message,
-      kunder: [],
-      produkter: []
-    });
+    return json(context, 500, { error: e.message, kunder: [], produkter: [] });
   }
 };

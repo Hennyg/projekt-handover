@@ -30,18 +30,10 @@ module.exports = async function (context, req) {
     }
 
     const token = await getGraphToken();
+    const url = `https://graph.microsoft.com/v1.0/sites/${SITE_ID()}/drives/${DRIVE_ID()}/root:/${encodeURI(image.path)}:/content`;
 
-    const url =
-      `https://graph.microsoft.com/v1.0/sites/${SITE_ID()}` +
-      `/drives/${DRIVE_ID()}/root:/${encodeURI(image.path)}:/content`;
-
-    const r = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!r.ok) {
-      throw new Error(`Graph download fejl ${r.status}: ${await r.text()}`);
-    }
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`Graph download fejl ${r.status}: ${await r.text()}`);
 
     const buf = Buffer.from(await r.arrayBuffer());
 

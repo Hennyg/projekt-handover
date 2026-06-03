@@ -55,9 +55,15 @@
       font-size: 14px;
       background: #fff;
     }
-    .imageOnlyCheck {
-      justify-content: center;
-      font-weight: 700;
+    .imageOnlyCheck { justify-content: center; font-weight: 700; }
+    .folderInfo {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      margin-bottom: 12px;
     }
     @media (max-width: 720px) {
       .nameItem { grid-template-columns: 1fr; }
@@ -128,21 +134,22 @@
     <button class="detailClose" id="qrClose">✕</button>
     <h2>QR til handover</h2>
     <p>Scan med telefonen for at åbne tekniker-siden.</p>
-    <div class="qrBox">
-      <img id="qrImage" alt="QR kode til handover">
-    </div>
+    <div class="qrBox"><img id="qrImage" alt="QR kode til handover"></div>
     <input id="qrUrl" type="text" readonly>
   </div>
 
   <div id="nameBackdrop" class="detailBackdrop hidden"></div>
   <div id="nameModal" class="nameModal hidden">
     <button class="detailClose" id="nameClose">✕</button>
-    <h2>Navngiv billeder</h2>
-    <p>Angiv filnavn for hvert markeret billede. Billederne downloades enkeltvis.</p>
+    <h2>Navngiv og gem billeder</h2>
+    <p>Angiv filnavn for hvert markeret billede. Du vælger mappe, når du trykker Gem billeder.</p>
+    <div class="folderInfo" id="folderInfo">
+      Mappevalg virker i Edge/Chrome. Hvis browseren ikke understøtter mappevalg, bruges almindelig download.
+    </div>
     <div id="nameList" class="nameList"></div>
     <div class="modalActions">
       <button id="btnCancelNames" type="button">Annuller</button>
-      <button id="btnDownloadNamed" type="button" class="primary">Download billeder</button>
+      <button id="btnDownloadNamed" type="button" class="primary">Gem billeder</button>
     </div>
   </div>
 

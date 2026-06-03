@@ -9,11 +9,7 @@ const el = id => document.getElementById(id);
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, m => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[m]));
 }
 
@@ -21,13 +17,7 @@ function fmtDate(s) {
   if (!s) return "";
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleString("da-DK", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return d.toLocaleString("da-DK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function parseImages(v) {
@@ -81,7 +71,6 @@ function bind() {
   el("q").addEventListener("input", applyFilters);
   el("statusFilter").addEventListener("change", applyFilters);
   el("btnRefresh").addEventListener("click", loadRows);
-
   el("btnReset").addEventListener("click", () => {
     el("q").value = "";
     el("statusFilter").value = "active";
@@ -99,7 +88,7 @@ function bind() {
   el("nameClose").addEventListener("click", closeNameModal);
   el("btnCancelNames").addEventListener("click", closeNameModal);
   el("nameBackdrop").addEventListener("click", closeNameModal);
-  el("btnDownloadNamed").addEventListener("click", downloadNamedImages);
+  el("btnDownloadNamed").addEventListener("click", saveNamedImagesToFolder);
 
   document.querySelectorAll("th.sortable").forEach(th => {
     th.addEventListener("click", () => {
@@ -116,7 +105,6 @@ function bind() {
 
 async function loadRows() {
   el("tbody").innerHTML = `<tr><td colspan="10">Henter...</td></tr>`;
-
   const r = await fetch("/api/handovers");
   const j = await r.json();
 
@@ -203,7 +191,6 @@ async function setDone(id, done) {
   });
 
   const j = await r.json().catch(() => ({}));
-
   if (!r.ok || j.error) {
     alert("Kunne ikke opdatere: " + (j.error || r.status));
     await loadRows();
@@ -212,7 +199,6 @@ async function setDone(id, done) {
 
   const row = rows.find(x => x.id === id);
   if (row) row.lch_aktiv = !done;
-
   applyFilters();
 }
 
@@ -248,7 +234,7 @@ function openDetail(id) {
       <div class="modalActions">
         <button type="button" onclick="selectAllImages(true)">Marker alle</button>
         <button type="button" onclick="selectAllImages(false)">Fjern markering</button>
-        <button type="button" class="primary" onclick="startNamedDownload('${esc(r.id)}')">Download markerede</button>
+        <button type="button" class="primary" onclick="startNamedDownload('${esc(r.id)}')">Gem markerede</button>
       </div>
 
       <div class="imageGrid">
@@ -298,7 +284,6 @@ function startNamedDownload(id) {
   if (!row) return;
 
   const imgs = parseImages(row.lch_billeder);
-
   const selected = Array.from(document.querySelectorAll(".imageCheck:checked"))
     .map(cb => {
       const index = Number(cb.dataset.index);
@@ -312,6 +297,11 @@ function startNamedDownload(id) {
   }
 
   pendingDownload = { row, selected };
+
+  el("folderInfo").textContent = "Næste trin: tryk Gem billeder og vælg den mappe billederne skal gemmes i.";
+  if (!window.showDirectoryPicker) {
+    el("folderInfo").textContent = "Din browser understøtter ikke mappevalg. Der bruges almindelig download i stedet. Brug Edge eller Chrome på PC for mappevalg.";
+  }
 
   el("nameList").innerHTML = selected.map((x, i) => {
     const defaultName = `${row.lch_kundenummer || "kunde"} - ${row.lch_produkt || "produkt"} - ${i + 1}`;
@@ -343,63 +333,85 @@ function closeNameModal() {
   el("nameModal").classList.add("hidden");
 }
 
-async function downloadNamedImages() {
+async function fetchImageBlob(image, fileName) {
+  const r = await fetch("/api/downloadimage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image, fileName })
+  });
+
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Download fejl ${r.status}`);
+  }
+
+  return await r.blob();
+}
+
+async function saveNamedImagesToFolder() {
   if (!pendingDownload) return;
 
   const inputs = Array.from(document.querySelectorAll(".nameInput"));
   const selected = pendingDownload.selected;
 
   el("btnDownloadNamed").disabled = true;
-  el("btnDownloadNamed").textContent = "Downloader...";
+  el("btnDownloadNamed").textContent = "Gemmer...";
 
   try {
+    if (window.showDirectoryPicker) {
+      const dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+
+      for (let i = 0; i < selected.length; i++) {
+        const item = selected[i];
+        const input = inputs[i];
+        const fileName = buildDownloadFileName(input?.value || "", item.image.name || item.image.path || "", i);
+        const blob = await fetchImageBlob(item.image, fileName);
+
+        const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      }
+
+      closeNameModal();
+      alert("Billederne er gemt.");
+      return;
+    }
+
+    // Fallback: almindelige enkelt-downloads
     for (let i = 0; i < selected.length; i++) {
       const item = selected[i];
       const input = inputs[i];
       const fileName = buildDownloadFileName(input?.value || "", item.image.name || item.image.path || "", i);
+      const blob = await fetchImageBlob(item.image, fileName);
 
-      const r = await fetch("/api/downloadimage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: item.image, fileName })
-      });
-
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new Error(j.error || `Download fejl ${r.status}`);
-      }
-
-      const blob = await r.blob();
       const a = document.createElement("a");
-
       a.href = URL.createObjectURL(blob);
       a.download = fileName;
-
       document.body.appendChild(a);
       a.click();
       a.remove();
 
       setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-
       await new Promise(resolve => setTimeout(resolve, 350));
     }
 
     closeNameModal();
   } catch (e) {
-    alert(e.message);
+    if (e?.name !== "AbortError") {
+      alert(e.message);
+    }
   } finally {
     el("btnDownloadNamed").disabled = false;
-    el("btnDownloadNamed").textContent = "Download billeder";
+    el("btnDownloadNamed").textContent = "Gem billeder";
   }
 }
 
 function openQr() {
   const handoverUrl = `${location.origin}/handover.html`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=12&data=${encodeURIComponent(handoverUrl)}`;
-
   el("qrImage").src = qrUrl;
   el("qrUrl").value = handoverUrl;
-
   el("qrBackdrop").classList.remove("hidden");
   el("qrModal").classList.remove("hidden");
 }
