@@ -13,6 +13,10 @@ let allProducts = [];
 
 const el = id => document.getElementById(id);
 
+// Null-safe classList helpers — no crash if element isn't in DOM yet
+function hide(...ids) { ids.forEach(id => { const e = el(id); if (e) e.classList.add("hidden"); }); }
+function show(id) { const e = el(id); if (e) e.classList.remove("hidden"); }
+
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, m => ({
     "&": "&amp;",
@@ -175,12 +179,7 @@ function selectCustomer(k) {
   `;
 
   // Hide downstream tiles
-  el("addressTile").classList.add("hidden");
-  el("teamTile").classList.add("hidden");
-  el("productTile").classList.add("hidden");
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  hide("addressTile", "teamTile", "productTile", "detailsTile", "imageTile", "saveTile");
 
   setTeamButtonState();
 
@@ -191,14 +190,14 @@ function selectCustomer(k) {
   if (uniqueAdresser.length <= 1) {
     // Only one (or zero) address — auto-select and go directly to team
     selectedAddress = uniqueAdresser[0] || null;
-    el("teamTile").classList.remove("hidden");
+    show("teamTile");
     setTimeout(() => {
       el("teamTile").scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   } else {
     // Multiple addresses — show address tile
     renderAddressButtons(uniqueAdresser);
-    el("addressTile").classList.remove("hidden");
+    show("addressTile");
     setTimeout(() => {
       el("addressTile").scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
@@ -226,11 +225,8 @@ function selectAddress(a) {
     btn.classList.toggle("active", btn.textContent.trim() === (a.label || a.adresse).trim());
   });
 
-  el("teamTile").classList.remove("hidden");
-  el("productTile").classList.add("hidden");
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  show("teamTile");
+  hide("productTile", "detailsTile", "imageTile", "saveTile");
 
   setTeamButtonState();
 
@@ -246,10 +242,8 @@ function selectTeam(team) {
 
   setTeamButtonState();
 
-  el("productTile").classList.remove("hidden");
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  show("productTile");
+  hide("detailsTile", "imageTile", "saveTile");
   el("btnProductNext").classList.add("hidden");
 
   loadProductsLocal(selectedCustomer.kundenr);
@@ -275,9 +269,7 @@ function loadProductsLocal(kundenr) {
   el("manualProduct").value = "";
   el("productSelect").dataset.products = JSON.stringify(produkter);
 
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  hide("detailsTile", "imageTile", "saveTile");
   el("btnDetailsNext").classList.add("hidden");
   el("btnProductNext").classList.add("hidden");
 
@@ -316,9 +308,7 @@ function onProductChange() {
   const val = el("productSelect").value;
   setSaveStatus("", "");
 
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  hide("detailsTile", "imageTile", "saveTile");
   el("btnDetailsNext").classList.add("hidden");
   el("btnProductNext").classList.add("hidden");
 
@@ -352,9 +342,7 @@ function updateProductNextVisibility() {
   el("btnProductNext").classList.toggle("hidden", !(isManualMode && hasManualProduct));
 
   if (!hasManualProduct) {
-    el("detailsTile").classList.add("hidden");
-    el("imageTile").classList.add("hidden");
-    el("saveTile").classList.add("hidden");
+    hide("detailsTile", "imageTile", "saveTile");
     el("btnDetailsNext").classList.add("hidden");
   }
 }
@@ -377,7 +365,7 @@ function showDetailsStepFromManualProduct() {
 }
 
 function showDetailsStep() {
-  el("detailsTile").classList.remove("hidden");
+  show("detailsTile");
   updateDetailsNextVisibility();
 
   setTimeout(() => {
@@ -392,8 +380,7 @@ function updateDetailsNextVisibility() {
   el("btnDetailsNext").classList.toggle("hidden", !hasLdn);
 
   if (!hasLdn) {
-    el("imageTile").classList.add("hidden");
-    el("saveTile").classList.add("hidden");
+    hide("imageTile", "saveTile");
   }
 }
 
@@ -408,7 +395,7 @@ function showImageStep() {
 
   setStatus("", "");
 
-  el("imageTile").classList.remove("hidden");
+  show("imageTile");
   updateSaveVisibility();
 
   setTimeout(() => {
@@ -630,12 +617,7 @@ function resetForm() {
   images = [];
 
   el("selectedCustomer").classList.add("hidden");
-  el("addressTile").classList.add("hidden");
-  el("teamTile").classList.add("hidden");
-  el("productTile").classList.add("hidden");
-  el("detailsTile").classList.add("hidden");
-  el("imageTile").classList.add("hidden");
-  el("saveTile").classList.add("hidden");
+  hide("addressTile", "teamTile", "productTile", "detailsTile", "imageTile", "saveTile");
   el("btnDetailsNext").classList.add("hidden");
   el("btnProductNext").classList.add("hidden");
 
