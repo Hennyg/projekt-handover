@@ -114,7 +114,23 @@ function parseWorkbook(buf, lastModified) {
         bynavn,
         by: [postnr, bynavn].filter(Boolean).join(" "),
         omraade,
-        kontrakt
+        kontrakt,
+        _adresseKeys: new Set(),
+        adresser: []
+      });
+    }
+
+    // Saml alle unikke adresser til adresse-tile
+    const kunde = kundeMap.get(kundeKey);
+    const adresseKey = [adresse, postnr, bynavn].join("|");
+    if (adresse && !kunde._adresseKeys.has(adresseKey)) {
+      kunde._adresseKeys.add(adresseKey);
+      kunde.adresser.push({
+        adresse,
+        postnr,
+        bynavn,
+        by: [postnr, bynavn].filter(Boolean).join(" "),
+        label: [adresse, postnr, bynavn].filter(Boolean).join(", ")
       });
     }
 
@@ -146,9 +162,9 @@ function parseWorkbook(buf, lastModified) {
     });
   }
 
-  const kunder = Array.from(kundeMap.values()).sort((a, b) =>
-    String(a.navn || "").localeCompare(String(b.navn || ""), "da", { sensitivity: "base" })
-  );
+  const kunder = Array.from(kundeMap.values())
+    .map(({ _adresseKeys, ...rest }) => rest)
+    .sort((a, b) => String(a.navn || "").localeCompare(String(b.navn || ""), "da", { sensitivity: "base" }));
 
   produkter.sort((a, b) =>
     [a.kundenavn, a.produkt, a.produktnr].join(" ")
