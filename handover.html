@@ -71,9 +71,39 @@
       transition: width .2s ease;
     }
 
+    /* Adresse-knapper: horisontale pills */
+    .addressButtons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .addressButton {
+      min-height: 48px;
+      font-size: 15px;
+      border: 2px solid #d1d5db;
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 16px;
+      text-align: left;
+      flex: 1 1 auto;
+      min-width: 160px;
+    }
+
+    .addressButton.active {
+      border-color: #a00018;
+      background: #fff1f2;
+      color: #a00018;
+    }
+
     @media (max-width: 520px) {
       .teamButtons {
         grid-template-columns: 1fr;
+      }
+
+      .addressButton {
+        width: 100%;
+        flex: 1 1 100%;
       }
     }
   </style>
@@ -102,16 +132,21 @@
       <div id="selectedCustomer" class="selectedBox hidden"></div>
     </section>
 
+    <section id="addressTile" class="tile hidden">
+      <h2>2. Vælg adresse</h2>
+      <div id="addressButtons" class="addressButtons"></div>
+    </section>
+
     <section id="teamTile" class="tile hidden">
-      <h2>2. Vælg team</h2>
+      <h2>3. Vælg team</h2>
       <div class="teamButtons">
-        <button id="btnTeamMilk" class="teamButton" type="button" data-team="Milk & cooling">Milk & cooling</button>
-        <button id="btnTeamFeed" class="teamButton" type="button" data-team="Feed & barn">Feed & barn</button>
+        <button id="btnTeamMilk" class="teamButton" type="button" data-team="Milk &amp; cooling">Milk &amp; cooling</button>
+        <button id="btnTeamFeed" class="teamButton" type="button" data-team="Feed &amp; barn">Feed &amp; barn</button>
       </div>
     </section>
 
     <section id="productTile" class="tile hidden">
-      <h2>3. Produkt</h2>
+      <h2>4. Produkt</h2>
       <select id="productSelect"></select>
       <input id="manualProduct" class="hidden" type="text" placeholder="Skriv produkt">
       <div id="productHelp" class="hint"></div>
@@ -119,7 +154,7 @@
     </section>
 
     <section id="detailsTile" class="tile hidden">
-      <h2>4. Oplysninger</h2>
+      <h2>5. Oplysninger</h2>
 
       <label for="ldn">LDN nummer <span class="requiredMark">*</span></label>
       <input id="ldn" type="text" autocomplete="off">
@@ -131,7 +166,7 @@
     </section>
 
     <section id="imageTile" class="tile hidden">
-      <h2>5. Billeder</h2>
+      <h2>6. Billeder</h2>
       <div class="buttonRow">
         <button id="btnPick" type="button">Tilføj fra telefon</button>
         <button id="btnCamera" type="button">Tag billede</button>
