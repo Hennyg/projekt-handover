@@ -320,6 +320,7 @@ function loadProductsLocal(kundenr) {
     produkter.map((p, i) => `
       <option value="${i}">
         ${esc(p.produkt)}
+        ${p.kontrakt ? " · " + esc(p.kontrakt) : ""}
         ${p.produktnr ? " · " + esc(p.produktnr) : ""}
       </option>
     `).join("") +
