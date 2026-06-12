@@ -1,6 +1,7 @@
 // assets/handover.js
 let currentUser = "";
 let selectedCustomer = null;
+let selectedAddress = null;   // { adresse, postnr, bynavn, by, label }
 let selectedTeam = "";
 let selectedProduct = null;
 let images = [];
@@ -159,6 +160,7 @@ function onCustomerSearch() {
 
 function selectCustomer(k) {
   selectedCustomer = k;
+  selectedAddress = null;
   selectedTeam = "";
   selectedProduct = null;
   setSaveStatus("", "");
@@ -172,6 +174,58 @@ function selectCustomer(k) {
     ${esc(k.kundenr)} · ${esc(k.adresse)} · ${esc(k.by)}
   `;
 
+  // Hide downstream tiles
+  el("addressTile").classList.add("hidden");
+  el("teamTile").classList.add("hidden");
+  el("productTile").classList.add("hidden");
+  el("detailsTile").classList.add("hidden");
+  el("imageTile").classList.add("hidden");
+  el("saveTile").classList.add("hidden");
+
+  setTeamButtonState();
+
+  // Decide: single address → skip address tile; multiple → show it
+  const adresser = k.adresser || [];
+  const uniqueAdresser = adresser.filter(a => a.adresse);
+
+  if (uniqueAdresser.length <= 1) {
+    // Only one (or zero) address — auto-select and go directly to team
+    selectedAddress = uniqueAdresser[0] || null;
+    el("teamTile").classList.remove("hidden");
+    setTimeout(() => {
+      el("teamTile").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  } else {
+    // Multiple addresses — show address tile
+    renderAddressButtons(uniqueAdresser);
+    el("addressTile").classList.remove("hidden");
+    setTimeout(() => {
+      el("addressTile").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+}
+
+function renderAddressButtons(adresser) {
+  el("addressButtons").innerHTML = adresser.map(a => `
+    <button
+      type="button"
+      class="addressButton"
+      onclick='selectAddress(${JSON.stringify(a).replace(/'/g, "&#39;")})'
+    >${esc(a.label || a.adresse)}</button>
+  `).join("");
+}
+
+function selectAddress(a) {
+  selectedAddress = a;
+  selectedTeam = "";
+  selectedProduct = null;
+  setSaveStatus("", "");
+
+  // Highlight active button
+  document.querySelectorAll(".addressButton").forEach(btn => {
+    btn.classList.toggle("active", btn.textContent.trim() === (a.label || a.adresse).trim());
+  });
+
   el("teamTile").classList.remove("hidden");
   el("productTile").classList.add("hidden");
   el("detailsTile").classList.add("hidden");
@@ -179,6 +233,10 @@ function selectCustomer(k) {
   el("saveTile").classList.add("hidden");
 
   setTeamButtonState();
+
+  setTimeout(() => {
+    el("teamTile").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
 }
 
 function selectTeam(team) {
@@ -208,6 +266,7 @@ function setTeamButtonState() {
 }
 
 function loadProductsLocal(kundenr) {
+  // Show ALL matching rows — no deduplication
   const produkter = allProducts.filter(p =>
     String(p.kundenr || "").trim().toLowerCase() === String(kundenr || "").trim().toLowerCase()
   );
@@ -239,13 +298,13 @@ function loadProductsLocal(kundenr) {
     return;
   }
 
+  // Kolonne I (serienr) vises IKKE i dropdown-teksten
   el("productSelect").innerHTML =
     `<option value="">Vælg produkt</option>` +
     produkter.map((p, i) => `
       <option value="${i}">
         ${esc(p.produkt)}
         ${p.produktnr ? " · " + esc(p.produktnr) : ""}
-        ${p.serienr ? " · " + esc(p.serienr) : ""}
       </option>
     `).join("") +
     `<option value="__manual__">Tilføj andet produkt</option>`;
@@ -423,6 +482,13 @@ function fileToBase64(file) {
   });
 }
 
+// Byg adresse-streng til Dataverse: "<adresse>, <postnr> <by>"
+function buildAdresseString() {
+  if (!selectedAddress) return "";
+  const parts = [selectedAddress.adresse, [selectedAddress.postnr, selectedAddress.bynavn].filter(Boolean).join(" ")].filter(Boolean);
+  return parts.join(", ");
+}
+
 async function saveHandover() {
   if (!selectedCustomer) {
     return setStatus("error", "Vælg kunde først.");
@@ -472,6 +538,7 @@ async function saveHandover() {
       body: JSON.stringify({
         lch_kundenavn: selectedCustomer.navn,
         lch_kundenummer: selectedCustomer.kundenr,
+        lch_adresse: buildAdresseString(),
         lch_team: selectedTeam,
         lch_produkt: produkt,
         lch_produktnr: produktnr,
@@ -555,6 +622,7 @@ async function saveHandover() {
 
 function resetForm() {
   selectedCustomer = null;
+  selectedAddress = null;
   selectedTeam = "";
   selectedProduct = null;
 
@@ -562,6 +630,7 @@ function resetForm() {
   images = [];
 
   el("selectedCustomer").classList.add("hidden");
+  el("addressTile").classList.add("hidden");
   el("teamTile").classList.add("hidden");
   el("productTile").classList.add("hidden");
   el("detailsTile").classList.add("hidden");
