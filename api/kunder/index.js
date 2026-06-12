@@ -47,31 +47,63 @@ function readWorkbook(buf, lastModified) {
   const rows = XLSX.utils.sheet_to_json(ws, { defval: "", header: 1 });
   const dataRows = rows.slice(2);
 
+  // Map: kundeKey -> { kundeInfo, Set of address keys, addresses[] }
   const kundeMap = new Map();
 
   for (const row of dataRows) {
     const navn = cell(row, 0);
+    const adresse = cell(row, 1);
+    const postnr = cell(row, 2);
+    const bynavn = cell(row, 3);
+    const omraade = cell(row, 4);
     const kundenr = cell(row, 5);
+    const kontrakt = cell(row, 14);
+
     if (!navn && !kundenr) continue;
 
     const key = kundenr || navn;
+
     if (!kundeMap.has(key)) {
       kundeMap.set(key, {
         navn,
-        adresse: cell(row, 1),
-        postnr: cell(row, 2),
-        bynavn: cell(row, 3),
-        by: [cell(row, 2), cell(row, 3)].filter(Boolean).join(" "),
-        omraade: cell(row, 4),
         kundenr,
-        kontrakt: cell(row, 14)
+        omraade,
+        kontrakt,
+        // Primary address (first occurrence)
+        adresse,
+        postnr,
+        bynavn,
+        by: [postnr, bynavn].filter(Boolean).join(" "),
+        // All unique addresses
+        _adresseKeys: new Set(),
+        adresser: []
+      });
+    }
+
+    // Track unique addresses for this customer
+    const kunde = kundeMap.get(key);
+    const adresseKey = [adresse, postnr, bynavn].join("|");
+    if (adresse && !kunde._adresseKeys.has(adresseKey)) {
+      kunde._adresseKeys.add(adresseKey);
+      kunde.adresser.push({
+        adresse,
+        postnr,
+        bynavn,
+        by: [postnr, bynavn].filter(Boolean).join(" "),
+        label: [adresse, postnr, bynavn].filter(Boolean).join(", ")
       });
     }
   }
 
+  // Clean up internal tracking set before returning
+  const kunder = Array.from(kundeMap.values()).map(k => {
+    const { _adresseKeys, ...rest } = k;
+    return rest;
+  });
+
   return {
-    kunder: Array.from(kundeMap.values()),
-    total: kundeMap.size,
+    kunder,
+    total: kunder.length,
     lastModified
   };
 }
