@@ -80,7 +80,6 @@ function parseWorkbook(buf, lastModified) {
 
   const kundeMap = new Map();
   const produkter = [];
-  const produktSeen = new Set();
   const firstCustomerRowSeen = new Set();
 
   for (const row of dataRows) {
@@ -93,6 +92,7 @@ function parseWorkbook(buf, lastModified) {
 
     const produkt = cell(row, 6);
     const produktnr = cell(row, 7);
+    // kolonne I (index 8) = serienr — indsamles til data men vises IKKE i dropdown-teksten
     const serienr = cell(row, 8);
     const installDato = dateCell(row, 9);
     const currentInstDato = dateCell(row, 10);
@@ -126,29 +126,17 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // Blødere filter:
     // Produktlinjen skal med, hvis Install. dato i kolonne J indeholder "xx".
-    // Det fanger både xx-xx-xxxx og andre x-varianter.
-    // Denne må ikke vendes.
     if (!hasXPlaceholder(installDato)) continue;
 
-    const produktKey = [
-      kundenr,
-      produkt,
-      produktnr,
-      serienr,
-      installDato
-    ].join("|").toLowerCase();
-
-    if (produktSeen.has(produktKey)) continue;
-    produktSeen.add(produktKey);
-
+    // Alle linjer inkluderes — ingen deduplicering
+    // serienr gemmes i data men skal ikke vises i dropdown (håndteres i frontend)
     produkter.push({
       kundenr,
       kundenavn,
       produkt,
       produktnr,
-      serienr,
+      serienr,       // gemmes til Dataverse-feltet, vises ikke i dropdown
       installDato,
       currentInstDato,
       garantiIndtil,
@@ -163,8 +151,8 @@ function parseWorkbook(buf, lastModified) {
   );
 
   produkter.sort((a, b) =>
-    [a.kundenavn, a.produkt, a.produktnr, a.serienr].join(" ")
-      .localeCompare([b.kundenavn, b.produkt, b.produktnr, b.serienr].join(" "), "da", { numeric: true })
+    [a.kundenavn, a.produkt, a.produktnr].join(" ")
+      .localeCompare([b.kundenavn, b.produkt, b.produktnr].join(" "), "da", { numeric: true })
   );
 
   return {
