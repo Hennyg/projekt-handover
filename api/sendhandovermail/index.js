@@ -1,5 +1,6 @@
 const { firstEnv, required } = require("../_env");
 const { getGraphToken } = require("../_graph");
+const { getUserName } = require("../_auth");
 
 const MAIL_FROM = () => required("HANDOVER_MAIL_FROM", firstEnv("HANDOVER_MAIL_FROM"));
 const MAIL_TO = () => required("HANDOVER_MAIL_TO", firstEnv("HANDOVER_MAIL_TO"));
@@ -48,7 +49,14 @@ module.exports = async function (context, req) {
 
     const token = await getGraphToken();
 
-    const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(MAIL_FROM())}/sendMail`, {
+    const sender = getUserName(req);
+
+if (!sender) {
+    throw new Error("Kunne ikke finde den loggede bruger.");
+}
+
+const r = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -61,9 +69,13 @@ module.exports = async function (context, req) {
             contentType: "HTML",
             content: html
           },
-          toRecipients: MAIL_TO().split(";").map(mail => ({
-            emailAddress: { address: mail.trim() }
-          })).filter(x => x.emailAddress.address)
+          toRecipients: [
+    {
+        emailAddress: {
+            address: "produkt-handover@lcherrup.dk"
+        }
+    }
+]
         },
         saveToSentItems: true
       })
