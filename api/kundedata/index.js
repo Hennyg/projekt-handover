@@ -76,6 +76,23 @@ async function downloadExcel() {
   };
 }
 
+function cleanProductName(value) {
+  return String(value || "")
+    .replace(/_Købekontrakt/gi, "")
+    .replace(/_Leasing/gi, "")
+    .replace(/_Servicekontrakt/gi, "")
+    .trim();
+}
+
+function cleanContractName(value) {
+  const v = String(value || "").trim();
+
+  if (!v) return "";
+  if (v.toLowerCase() === "x") return "Ukendt kontrakt";
+
+  return v;
+}
+
 function parseWorkbook(buf, lastModified) {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
@@ -120,7 +137,7 @@ function parseWorkbook(buf, lastModified) {
     const omraade = lastOmraade;
     const kundenr = lastKundenr;
 
-    const produkt = cell(row, 6);
+    const produkt = cleanProductName(cell(row, 6));
     const produktnr = cell(row, 7);
     const serienr = cell(row, 8);
     const installDato = dateCell(row, 9);
@@ -128,7 +145,7 @@ function parseWorkbook(buf, lastModified) {
     const garantiIndtil = dateCell(row, 11);
     const chr = cell(row, 12);
     const note = cell(row, 13);
-    const kontrakt = cell(row, 14);
+    const kontrakt = cleanContractName(cell(row, 14));
 
     if (!kundenavn && !kundenr) continue;
 
