@@ -13,6 +13,27 @@ let allProducts = [];
 
 const el = id => document.getElementById(id);
 
+function setStepNumbers(hasAddressStep) {
+  const teamTitle = el("teamTitle");
+  const productTitle = el("productTitle");
+  const detailsTitle = el("detailsTitle");
+  const imageTitle = el("imageTitle");
+
+  if (!teamTitle) return;
+
+  teamTitle.textContent =
+    hasAddressStep ? "3. Vælg team" : "2. Vælg team";
+
+  productTitle.textContent =
+    hasAddressStep ? "4. Produkt" : "3. Produkt";
+
+  detailsTitle.textContent =
+    hasAddressStep ? "5. Oplysninger" : "4. Oplysninger";
+
+  imageTitle.textContent =
+    hasAddressStep ? "6. Billeder" : "5. Billeder";
+}
+
 // Null-safe classList helpers — no crash if element isn't in DOM yet
 function hide(...ids) { ids.forEach(id => { const e = el(id); if (e) e.classList.add("hidden"); }); }
 function show(id) { const e = el(id); if (e) e.classList.remove("hidden"); }
@@ -184,8 +205,11 @@ function selectCustomer(k) {
   setTeamButtonState();
 
   // Decide: single address → skip address tile; multiple → show it
-  const adresser = k.adresser || [];
-  const uniqueAdresser = adresser.filter(a => a.adresse);
+const adresser = k.adresser || [];
+const uniqueAdresser = adresser.filter(a => a.adresse);
+
+// Ret trin-numre afhængigt af om adressevalget vises
+setStepNumbers(uniqueAdresser.length > 1);
 
   if (uniqueAdresser.length <= 1) {
     // Only one (or zero) address — auto-select and go directly to team
