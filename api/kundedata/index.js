@@ -93,6 +93,10 @@ function parseWorkbook(buf, lastModified) {
     const produkt = cell(row, 6);
     const produktnr = cell(row, 7);
     const serienr = cell(row, 8);
+    // Tjek rå værdier FØR dateCell-konvertering:
+    // Excel gemmer rigtige datoer som tal (f.eks. 44819) — dem springer vi over
+    // Placeholder "xx-xx-xxxx" er tekst — dem inkluderer vi
+    const rawInstall = row[9];
     const installDato = dateCell(row, 9);
     const currentInstDato = dateCell(row, 10);
     const garantiIndtil = dateCell(row, 11);
@@ -144,7 +148,9 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // Produktlinjen skal med, hvis Install. dato indeholder "xx".
+    // Produktlinjen skal med, hvis Install. dato er tekst med "xx" (placeholder).
+    // Hvis rawInstall er et tal er det en rigtig Excel-dato → spring over.
+    if (typeof rawInstall === "number") continue;
     if (!hasXPlaceholder(installDato)) continue;
 
     // Alle linjer inkluderes — ingen deduplicering
@@ -198,13 +204,13 @@ module.exports = async function (context, req) {
   try {
     const data = await getData();
 
-    // ?debug=1 returnerer de første 10 rå rækker så vi kan se hvad XLSX læser
-    if (req.query.debug === "1") {
-      const { buf } = await downloadExcel();
-      const wb = require("xlsx").read(buf, { type: "buffer" });
-      const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
-      const rows = require("xlsx").utils.sheet_to_json(ws, { defval: "", header: 1 });
-      return json(context, 200, { rows: rows.slice(0, 10).map(r => r.slice(0, 16)) });
+    // ?debug=produkter&kundenr=0080002192 — vis rå produkter for en kunde
+    if (req.query.debug === "produkter") {
+      const kundenr = req.query.kundenr || "";
+      const sample = data.produkter
+        .filter(p => !kundenr || p.kundenr === kundenr)
+        .slice(0, 5);
+      return json(context, 200, { sample });
     }
 
     return json(context, 200, {
