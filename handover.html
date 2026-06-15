@@ -71,6 +71,80 @@
       transition: width .2s ease;
     }
 
+    /* Mail + billedtabel */
+    .btnMail {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 54px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #0078d4;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .btnMail:active { background: #005fa3; }
+    .btnMail svg { flex-shrink: 0; }
+
+    .imageTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .imageTable th {
+      background: #f3f4f6;
+      text-align: left;
+      padding: 8px 10px;
+      font-weight: 600;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .imageTable th:first-child,
+    .imageTable td:first-child {
+      width: 36px;
+      text-align: center;
+      padding-left: 8px;
+      padding-right: 0;
+    }
+    .imageTable td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+      word-break: break-all;
+    }
+    .imageTable tr:last-child td { border-bottom: none; }
+    .imageTable input[type=checkbox] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #a00018;
+    }
+    .imageTable a {
+      color: #a00018;
+      text-decoration: none;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .imageTable a:active { text-decoration: underline; }
+
+    .btnDownloadAll {
+      width: 100%;
+      min-height: 48px;
+      font-size: 15px;
+      font-weight: 600;
+      background: #fff;
+      color: #a00018;
+      border: 2px solid #a00018;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .btnDownloadAll:active { background: #fff1f2; }
+
     /* Adresse-knapper: horisontale pills */
     .addressButtons {
       display: flex;
@@ -133,12 +207,12 @@
     </section>
 
     <section id="addressTile" class="tile hidden">
-      <h2 id="addressTitle">2. Vælg adresse</h2>
+      <h2>2. Vælg adresse</h2>
       <div id="addressButtons" class="addressButtons"></div>
     </section>
 
     <section id="teamTile" class="tile hidden">
-      <h2 id="teamTitle">3. Vælg team</h2>
+      <h2>3. Vælg team</h2>
       <div class="teamButtons">
         <button id="btnTeamMilk" class="teamButton" type="button" data-team="Milk &amp; cooling">Milk &amp; cooling</button>
         <button id="btnTeamFeed" class="teamButton" type="button" data-team="Feed &amp; barn">Feed &amp; barn</button>
@@ -146,7 +220,7 @@
     </section>
 
     <section id="productTile" class="tile hidden">
-      <h2 id="productTitle">4. Produkt</h2>
+      <h2>4. Produkt</h2>
       <select id="productSelect"></select>
       <input id="manualProduct" class="hidden" type="text" placeholder="Skriv produkt">
       <div id="productHelp" class="hint"></div>
@@ -154,10 +228,10 @@
     </section>
 
     <section id="detailsTile" class="tile hidden">
-      <h2 id="detailsTitle">5. Oplysninger</h2>
+      <h2>5. Oplysninger</h2>
 
       <label for="ldn">LDN nummer <span class="requiredMark">*</span></label>
-      <input id="ldn" type="text" autocomplete="off">
+      <input id="ldn" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
 
       <label for="comment">Kommentar</label>
       <textarea id="comment" rows="6"></textarea>
@@ -166,7 +240,7 @@
     </section>
 
     <section id="imageTile" class="tile hidden">
-      <h2 id="imageTitle">6. Billeder</h2>
+      <h2>6. Billeder</h2>
       <div class="buttonRow">
         <button id="btnPick" type="button">Tilføj fra telefon</button>
         <button id="btnCamera" type="button">Tag billede</button>
@@ -185,8 +259,33 @@
       </div>
       <button id="btnSave" type="button" class="primary wide">Gem handover</button>
     </section>
+
+    <section id="mailTile" class="tile mailTile hidden">
+      <h2>7. Send mail</h2>
+      <button id="btnMail" type="button" class="btnMail">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+        </svg>
+        Åbn i Outlook
+      </button>
+      <p style="font-size:13px;color:#6b7280;margin:0 0 14px">Husk at vedhæfte billeder fra tabellen nedenfor</p>
+
+      <table class="imageTable" id="imageTable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="chkAll" title="Markér alle"></th>
+            <th>Filnavn</th>
+            <th>Vis</th>
+            <th>Gem</th>
+          </tr>
+        </thead>
+        <tbody id="imageTableBody"></tbody>
+      </table>
+
+      <button id="btnDownloadAll" type="button" class="btnDownloadAll">Hent alle markerede</button>
+    </section>
   </main>
 
-  <script src="/assets/handover.js?v=3"></script>
+  <script src="/assets/handover.js"></script>
 </body>
 </html>
