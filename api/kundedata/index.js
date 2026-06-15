@@ -26,6 +26,7 @@ function json(context, status, body) {
 function cell(row, i) {
   const v = row[i];
   if (v === null || v === undefined) return "";
+  if (typeof v === "number") return String(v).trim();
   return String(v).trim();
 }
 
@@ -38,16 +39,6 @@ function dateCell(row, i) {
 
 function hasXPlaceholder(value) {
   return String(value || "").trim().toLowerCase().includes("xx");
-}
-
-function makeAddress(adresse, postnr, bynavn) {
-  return {
-    adresse,
-    postnr,
-    bynavn,
-    by: [postnr, bynavn].filter(Boolean).join(" "),
-    label: [adresse, postnr, bynavn].filter(Boolean).join(", ")
-  };
 }
 
 async function downloadExcel() {
@@ -76,23 +67,6 @@ async function downloadExcel() {
   };
 }
 
-function cleanProductName(value) {
-  return String(value || "")
-    .replace(/_Købekontrakt/gi, "")
-    .replace(/_Leasing/gi, "")
-    .replace(/_Servicekontrakt/gi, "")
-    .trim();
-}
-
-function cleanContractName(value) {
-  const v = String(value || "").trim();
-
-  if (!v) return "";
-  if (v.toLowerCase() === "x") return "Ukendt kontrakt";
-
-  return v;
-}
-
 function parseWorkbook(buf, lastModified) {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
@@ -108,36 +82,15 @@ function parseWorkbook(buf, lastModified) {
   const produkter = [];
   const firstCustomerRowSeen = new Set();
 
-  let lastKundenavn = "";
-  let lastAdresse = "";
-  let lastPostnr = "";
-  let lastBynavn = "";
-  let lastOmraade = "";
-  let lastKundenr = "";
-
   for (const row of dataRows) {
-    const rawKundenavn = cell(row, 0);
-    const rawAdresse = cell(row, 1);
-    const rawPostnr = cell(row, 2);
-    const rawBynavn = cell(row, 3);
-    const rawOmraade = cell(row, 4);
-    const rawKundenr = cell(row, 5);
+    const kundenavn = cell(row, 0);
+    const adresse = cell(row, 1);
+    const postnr = cell(row, 2);
+    const bynavn = cell(row, 3);
+    const omraade = cell(row, 4);
+    const kundenr = cell(row, 5);
 
-    if (rawKundenavn) lastKundenavn = rawKundenavn;
-    if (rawAdresse) lastAdresse = rawAdresse;
-    if (rawPostnr) lastPostnr = rawPostnr;
-    if (rawBynavn) lastBynavn = rawBynavn;
-    if (rawOmraade) lastOmraade = rawOmraade;
-    if (rawKundenr) lastKundenr = rawKundenr;
-
-    const kundenavn = lastKundenavn;
-    const adresse = lastAdresse;
-    const postnr = lastPostnr;
-    const bynavn = lastBynavn;
-    const omraade = lastOmraade;
-    const kundenr = lastKundenr;
-
-    const produkt = cleanProductName(cell(row, 6));
+    const produkt = cell(row, 6);
     const produktnr = cell(row, 7);
     const serienr = cell(row, 8);
     const installDato = dateCell(row, 9);
@@ -145,7 +98,10 @@ function parseWorkbook(buf, lastModified) {
     const garantiIndtil = dateCell(row, 11);
     const chr = cell(row, 12);
     const note = cell(row, 13);
-    const kontrakt = cleanContractName(cell(row, 14));
+    const kontraktType = cell(row, 14);
+    // note (index 13) = "Projekt maj-26" e.l. — bruges som kontrakt-label
+    // kontraktType (index 14) = "x" betyder købekontrakt uden navn → "Ukendt kontrakt"
+    const kontrakt = note || (kontraktType === "x" ? "Ukendt kontrakt" : "");
 
     if (!kundenavn && !kundenr) continue;
 
@@ -166,32 +122,39 @@ function parseWorkbook(buf, lastModified) {
       });
     }
 
+    // Saml alle unikke adresser til adresse-tile
     const kunde = kundeMap.get(kundeKey);
-
-    const adresseKey = [adresse, postnr, bynavn].join("|").toLowerCase();
+    const adresseKey = [adresse, postnr, bynavn].join("|");
     if (adresse && !kunde._adresseKeys.has(adresseKey)) {
       kunde._adresseKeys.add(adresseKey);
-      kunde.adresser.push(makeAddress(adresse, postnr, bynavn));
+      kunde.adresser.push({
+        adresse,
+        postnr,
+        bynavn,
+        by: [postnr, bynavn].filter(Boolean).join(" "),
+        label: [adresse, postnr, bynavn].filter(Boolean).join(", ")
+      });
     }
 
+    // Første record pr. kunde er kun info-linje og skal ikke med som produkt.
     if (!firstCustomerRowSeen.has(kundeKey)) {
       firstCustomerRowSeen.add(kundeKey);
       continue;
     }
 
     if (!produkt) continue;
+
+    // Produktlinjen skal med, hvis Install. dato i kolonne J indeholder "xx".
     if (!hasXPlaceholder(installDato)) continue;
 
+    // Alle linjer inkluderes — ingen deduplicering
+    // serienr gemmes i data men skal ikke vises i dropdown (håndteres i frontend)
     produkter.push({
       kundenr,
       kundenavn,
-      adresse,
-      postnr,
-      bynavn,
-      by: [postnr, bynavn].filter(Boolean).join(" "),
       produkt,
       produktnr,
-      serienr,
+      serienr,       // gemmes til Dataverse-feltet, vises ikke i dropdown
       installDato,
       currentInstDato,
       garantiIndtil,
