@@ -6,33 +6,13 @@ let selectedTeam = "";
 let selectedProduct = null;
 let images = [];
 let searchTimer = null;
+let savedProductKeys = new Set();   // produkter gemt i denne session — udelukkes fra dropdown
 
 let kundeDataLoaded = false;
 let allCustomers = [];
 let allProducts = [];
 
 const el = id => document.getElementById(id);
-
-function setStepNumbers(hasAddressStep) {
-  const teamTitle = el("teamTitle");
-  const productTitle = el("productTitle");
-  const detailsTitle = el("detailsTitle");
-  const imageTitle = el("imageTitle");
-
-  if (!teamTitle) return;
-
-  teamTitle.textContent =
-    hasAddressStep ? "3. Vælg team" : "2. Vælg team";
-
-  productTitle.textContent =
-    hasAddressStep ? "4. Produkt" : "3. Produkt";
-
-  detailsTitle.textContent =
-    hasAddressStep ? "5. Oplysninger" : "4. Oplysninger";
-
-  imageTitle.textContent =
-    hasAddressStep ? "6. Billeder" : "5. Billeder";
-}
 
 // Null-safe classList helpers — no crash if element isn't in DOM yet
 function hide(...ids) { ids.forEach(id => { const e = el(id); if (e) e.classList.add("hidden"); }); }
@@ -141,6 +121,9 @@ function bind() {
   el("fileCamera").addEventListener("change", e => addFiles(e.target.files));
 
   el("btnSave").addEventListener("click", saveHandover);
+  el("btnMail").addEventListener("click", openMail);
+  el("chkAll").addEventListener("change", toggleAllImages);
+  el("btnDownloadAll").addEventListener("click", downloadAllChecked);
 }
 
 function onCustomerSearch() {
@@ -200,16 +183,13 @@ function selectCustomer(k) {
   `;
 
   // Hide downstream tiles
-  hide("addressTile", "teamTile", "productTile", "detailsTile", "imageTile", "saveTile");
+  hide("addressTile", "teamTile", "productTile", "detailsTile", "imageTile", "saveTile", "mailTile");
 
   setTeamButtonState();
 
   // Decide: single address → skip address tile; multiple → show it
-const adresser = k.adresser || [];
-const uniqueAdresser = adresser.filter(a => a.adresse);
-
-// Ret trin-numre afhængigt af om adressevalget vises
-setStepNumbers(uniqueAdresser.length > 1);
+  const adresser = k.adresser || [];
+  const uniqueAdresser = adresser.filter(a => a.adresse);
 
   if (uniqueAdresser.length <= 1) {
     // Only one (or zero) address — auto-select and go directly to team
@@ -285,9 +265,12 @@ function setTeamButtonState() {
 
 function loadProductsLocal(kundenr) {
   // Show ALL matching rows — no deduplication
-  const produkter = allProducts.filter(p =>
-    String(p.kundenr || "").trim().toLowerCase() === String(kundenr || "").trim().toLowerCase()
-  );
+  // Udeluk produkter som allerede er gemt i denne session
+  const produkter = allProducts.filter(p => {
+    if (String(p.kundenr || "").trim().toLowerCase() !== String(kundenr || "").trim().toLowerCase()) return false;
+    const key = [p.produkt, p.produktnr, p.serienr].join("|");
+    return !savedProductKeys.has(key);
+  });
 
   el("manualProduct").classList.add("hidden");
   el("manualProduct").value = "";
@@ -314,16 +297,12 @@ function loadProductsLocal(kundenr) {
     return;
   }
 
-  // Kolonne I (serienr) vises IKKE i dropdown-teksten
   el("productSelect").innerHTML =
     `<option value="">Vælg produkt</option>` +
-    produkter.map((p, i) => `
-      <option value="${i}">
-        ${esc(p.produkt)}
-        ${p.kontrakt ? " · " + esc(p.kontrakt) : ""}
-        ${p.produktnr ? " · " + esc(p.produktnr) : ""}
-      </option>
-    `).join("") +
+    produkter.map((p, i) => {
+      const parts = [p.produkt, p.kontrakt, p.produktnr, p.serienr].filter(Boolean);
+      return `<option value="${i}">${esc(parts.join(" · "))}</option>`;
+    }).join("") +
     `<option value="__manual__">Tilføj andet produkt</option>`;
 
   el("productHelp").textContent = `${produkter.length} produkt(er) fundet`;
@@ -620,39 +599,12 @@ async function saveHandover() {
       }
     }
 
-    setSaveStatus("loading", "Sender mail...", 95);
-
-const mailResp = await fetch("/api/sendhandovermail", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    kundenavn: selectedCustomer.navn,
-    kundenummer: selectedCustomer.kundenr,
-    adresse: buildAdresseString(),
-    team: selectedTeam,
-    produkt,
-    produktnr,
-    serienr,
-    ldn,
-    kommentar,
-    tekniker: currentUser,
-    images: uploaded
-  })
-});
-
-const mailResult = await mailResp.json();
-
-if (!mailResp.ok || mailResult.error) {
-  throw new Error(mailResult.error || `Mail HTTP ${mailResp.status}`);
-}
-
     setSaveStatus("ok", "Handover er gemt.", 100);
-    setTimeout(() => {
-      resetForm();
-      setSaveStatus("ok", "Handover er gemt.", 100);
-    }, 500);
+    // Gem den netop gemte produkts unikke nøgle så den kan udelukkes ved genbrug
+    const savedKey = selectedProduct
+      ? [selectedProduct.produkt, selectedProduct.produktnr, selectedProduct.serienr].join("|")
+      : null;
+    setTimeout(() => reuseSession(savedKey), 600);
   } catch (e) {
     setSaveStatus("error", e.message, 100);
   } finally {
@@ -660,7 +612,36 @@ if (!mailResp.ok || mailResult.error) {
   }
 }
 
+function reuseSession(savedKey) {
+  // Registrer det gemte produkt som brugt i denne session
+  if (savedKey) savedProductKeys.add(savedKey);
+
+  // Nulstil produkt/detaljer/billeder — behold kunde, adresse og team
+  selectedProduct = null;
+  images.forEach(img => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
+  images = [];
+
+  hide("productTile", "detailsTile", "imageTile", "saveTile");
+  el("btnDetailsNext").classList.add("hidden");
+  el("btnProductNext").classList.add("hidden");
+  el("productSelect").innerHTML = "";
+  el("manualProduct").value = "";
+  el("manualProduct").classList.add("hidden");
+  el("ldn").value = "";
+  el("comment").value = "";
+  renderPreview();
+  setSaveStatus("", "");
+
+  // Vis team-tile og scroll til den
+  show("teamTile");
+  setTeamButtonState();
+  setTimeout(() => {
+    el("teamTile").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
+}
+
 function resetForm() {
+  savedProductKeys.clear();
   selectedCustomer = null;
   selectedAddress = null;
   selectedTeam = "";
@@ -683,6 +664,105 @@ function resetForm() {
 
   setTeamButtonState();
   renderPreview();
+}
+
+// ─── Mail + billedtabel ───────────────────────────────────────────
+
+let savedImages = [];   // { name, url } efter upload
+
+function showMailTile({ kundenavn, adresse, ldn, produkt, uploaded }) {
+  savedImages = (uploaded || []).map(u => ({
+    name: u.fileName || u.name || "billede.jpg",
+    url: u.url || u.webUrl || ""
+  }));
+
+  // Byg tabel
+  const tbody = el("imageTableBody");
+  tbody.innerHTML = savedImages.map((img, i) => `
+    <tr>
+      <td><input type="checkbox" class="imgCheck" data-idx="${i}" checked></td>
+      <td>${esc(img.name)}</td>
+      <td><a href="${esc(img.url)}" target="_blank" rel="noopener">Vis</a></td>
+      <td><a href="${esc(img.url)}" download="${esc(img.name)}">Gem</a></td>
+    </tr>
+  `).join("");
+
+  // Sæt header-checkbox
+  el("chkAll").checked = true;
+
+  show("mailTile");
+  setTimeout(() => {
+    el("mailTile").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
+
+  // Gem data til mail-knap
+  el("btnMail").dataset.kundenavn = kundenavn;
+  el("btnMail").dataset.adresse = adresse;
+  el("btnMail").dataset.ldn = ldn;
+  el("btnMail").dataset.produkt = produkt;
+}
+
+function openMail() {
+  const d = el("btnMail").dataset;
+  const appUrl = location.origin + "/handover";
+
+  const subject = encodeURIComponent(`${d.kundenavn} - ${d.produkt}`);
+  const body = encodeURIComponent(
+`Hej,
+
+Her er billede med SN på nyt produkt installeret ved:
+Kundenavn: ${d.kundenavn}
+Adresse: ${d.adresse}
+LDN: ${d.ldn}
+
+Link til projekt handover app: ${appUrl}`
+  );
+
+  location.href = `mailto:produkt-handover@lcherrup.dk?subject=${subject}&body=${body}`;
+}
+
+function toggleAllImages() {
+  const checked = el("chkAll").checked;
+  document.querySelectorAll(".imgCheck").forEach(cb => { cb.checked = checked; });
+}
+
+async function downloadAllChecked() {
+  const checked = Array.from(document.querySelectorAll(".imgCheck:checked"))
+    .map(cb => savedImages[Number(cb.dataset.idx)])
+    .filter(Boolean);
+
+  if (!checked.length) {
+    alert("Ingen billeder markeret.");
+    return;
+  }
+
+  for (const img of checked) {
+    // Fetch billedet og lav et objekt-URL så Android gemmer det korrekt
+    try {
+      const resp = await fetch(img.url);
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = img.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Lille pause så browseren ikke blokerer flere downloads
+      await new Promise(r => setTimeout(r, 300));
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback: direkte link
+      const a = document.createElement("a");
+      a.href = img.url;
+      a.download = img.name;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
 }
 
 init();
