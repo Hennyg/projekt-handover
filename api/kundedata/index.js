@@ -148,6 +148,9 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
+    // Spring info-linjer over — de har "x.xxxx.xxxx.x" eller "ingen" i produktnr
+    if (!produktnr || produktnr === "ingen" || produktnr.startsWith("x.xxxx")) continue;
+
     // Produktlinjen skal med, hvis Install. dato er tekst med "xx" (placeholder).
     // Hvis rawInstall er et tal er det en rigtig Excel-dato → spring over.
     if (typeof rawInstall === "number") continue;
@@ -211,6 +214,25 @@ module.exports = async function (context, req) {
         .filter(p => !kundenr || p.kundenr === kundenr)
         .slice(0, 5);
       return json(context, 200, { sample });
+    }
+
+    // ?debug=raw&kundenr=0080002192 — vis rå XLSX-rækker kolonne A-O for en kunde
+    if (req.query.debug === "raw") {
+      const { buf } = await downloadExcel();
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
+      const allRows = XLSX.utils.sheet_to_json(ws, { defval: "", header: 1 });
+      const kundenr = String(req.query.kundenr || "").trim();
+      const headers = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
+      const rows = allRows
+        .map((row, i) => {
+          const obj = { _row: i + 1 };
+          headers.forEach((h, j) => { obj[h] = row[j]; });
+          return obj;
+        })
+        .filter(r => !kundenr || String(r.F || "").trim() === kundenr)
+        .slice(0, 10);
+      return json(context, 200, { rows });
     }
 
     return json(context, 200, {
