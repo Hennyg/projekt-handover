@@ -198,6 +198,15 @@ module.exports = async function (context, req) {
   try {
     const data = await getData();
 
+    // ?debug=1 returnerer de første 10 rå rækker så vi kan se hvad XLSX læser
+    if (req.query.debug === "1") {
+      const { buf } = await downloadExcel();
+      const wb = require("xlsx").read(buf, { type: "buffer" });
+      const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
+      const rows = require("xlsx").utils.sheet_to_json(ws, { defval: "", header: 1 });
+      return json(context, 200, { rows: rows.slice(0, 10).map(r => r.slice(0, 16)) });
+    }
+
     return json(context, 200, {
       lastModified: data.lastModified,
       kunder: data.kunder,
