@@ -144,7 +144,7 @@ function parseWorkbook(buf, lastModified) {
 
     if (!produkt) continue;
 
-    // Produktlinjen skal med, hvis Install. dato i kolonne J indeholder "xx".
+    // Produktlinjen skal med, hvis Install. dato indeholder "xx".
     if (!hasXPlaceholder(installDato)) continue;
 
     // Alle linjer inkluderes — ingen deduplicering
