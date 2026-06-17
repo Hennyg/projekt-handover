@@ -18,6 +18,33 @@ const el = id => document.getElementById(id);
 function hide(...ids) { ids.forEach(id => { const e = el(id); if (e) e.classList.add("hidden"); }); }
 function show(id) { const e = el(id); if (e) e.classList.remove("hidden"); }
 
+function hasAddressStep() {
+  if (!selectedCustomer) return false;
+  return (selectedCustomer.adresser || []).filter(a => a.adresse).length > 1;
+}
+
+function setTileTitle(tileId, text) {
+  const title = el(tileId)?.querySelector("h2");
+  if (title) title.textContent = text;
+}
+
+function updateTileNumbers() {
+  const withAddress = hasAddressStep();
+  const teamNo = withAddress ? 3 : 2;
+  const productNo = teamNo + 1;
+  const detailsNo = teamNo + 2;
+  const imageNo = teamNo + 3;
+  const mailNo = teamNo + 4;
+
+  setTileTitle("customerTile", "1. Kunde");
+  setTileTitle("addressTile", "2. Vælg adresse");
+  setTileTitle("teamTile", `${teamNo}. Vælg team`);
+  setTileTitle("productTile", `${productNo}. Produkt`);
+  setTileTitle("detailsTile", `${detailsNo}. Oplysninger`);
+  setTileTitle("imageTile", `${imageNo}. Billeder`);
+  setTileTitle("mailTile", `${mailNo}. Send mail`);
+}
+
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, m => ({
     "&": "&amp;",
@@ -93,6 +120,7 @@ async function loadKundeData() {
     kundeDataLoaded = true;
 
     setStatus("", "");
+    updateTileNumbers();
     el("customerTile").classList.remove("hidden");
     el("customerSearch").focus();
   } catch (e) {
@@ -171,6 +199,7 @@ function selectCustomer(k) {
   selectedAddress = null;
   selectedTeam = "";
   selectedProduct = null;
+  updateTileNumbers();
   setSaveStatus("", "");
 
   el("customerResults").innerHTML = "";
@@ -616,12 +645,12 @@ function reuseSession(savedKey) {
   // Registrer det gemte produkt som brugt i denne session
   if (savedKey) savedProductKeys.add(savedKey);
 
-  // Nulstil produkt/detaljer/billeder — behold kunde, adresse og team
+  // Nulstil kun produkt/detaljer/billeder — behold kunde, adresse og team
   selectedProduct = null;
   images.forEach(img => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
   images = [];
 
-  hide("productTile", "detailsTile", "imageTile", "saveTile");
+  hide("detailsTile", "imageTile", "saveTile", "mailTile");
   el("btnDetailsNext").classList.add("hidden");
   el("btnProductNext").classList.add("hidden");
   el("productSelect").innerHTML = "";
@@ -631,10 +660,22 @@ function reuseSession(savedKey) {
   el("comment").value = "";
   renderPreview();
   setSaveStatus("", "");
+  updateTileNumbers();
 
-  // Vis team-tile og scroll til den
+  // Behold kunde + team og gå direkte til næste produktvalg
   show("teamTile");
   setTeamButtonState();
+
+  if (selectedCustomer && selectedTeam) {
+    show("productTile");
+    loadProductsLocal(selectedCustomer.kundenr);
+
+    setTimeout(() => {
+      el("productTile").scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return;
+  }
+
   setTimeout(() => {
     el("teamTile").scrollIntoView({ behavior: "smooth", block: "start" });
   }, 50);
@@ -646,6 +687,7 @@ function resetForm() {
   selectedAddress = null;
   selectedTeam = "";
   selectedProduct = null;
+  updateTileNumbers();
 
   images.forEach(img => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
   images = [];
