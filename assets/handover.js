@@ -628,6 +628,34 @@ async function saveHandover() {
       }
     }
 
+    setSaveStatus("loading", "Sender mail...", 95);
+
+const mailResp = await fetch("/api/sendhandovermail", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    kundenavn: selectedCustomer.navn,
+    kundenummer: selectedCustomer.kundenr,
+    adresse: buildAdresseString(),
+    team: selectedTeam,
+    produkt,
+    produktnr,
+    serienr,
+    ldn,
+    tekniker: currentUser,
+    kommentar,
+    images: uploaded
+  })
+});
+
+const mailResult = await mailResp.json();
+
+if (!mailResp.ok || mailResult.error) {
+  throw new Error(mailResult.error || `Mail HTTP ${mailResp.status}`);
+}
+
     setSaveStatus("ok", "Handover er gemt.", 100);
     // Gem den netop gemte produkts unikke nøgle så den kan udelukkes ved genbrug
     const savedKey = selectedProduct
