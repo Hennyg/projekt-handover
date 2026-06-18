@@ -329,7 +329,7 @@ function loadProductsLocal(kundenr) {
   el("productSelect").innerHTML =
     `<option value="">Vælg produkt</option>` +
     produkter.map((p, i) => {
-      const parts = [p.produkt, p.kontrakt, p.produktnr, p.serienr].filter(Boolean);
+      const parts = [p.produkt, p.produktnr, p.serienr].filter(Boolean);
       return `<option value="${i}">${esc(parts.join(" · "))}</option>`;
     }).join("") +
     `<option value="__manual__">Tilføj andet produkt</option>`;
