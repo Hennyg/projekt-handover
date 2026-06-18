@@ -25,14 +25,14 @@ module.exports = async function (context, req) {
     const b = req.body || {};
     const images = Array.isArray(b.images) ? b.images : [];
 
-    const subject = `Ny projekt handover - ${b.kundenummer || ""} ${b.kundenavn || ""}`.trim();
+    const subject = `Ny produkt handover - ${b.kundenummer || ""} ${b.kundenavn || ""}`.trim();
 
     const imageLinks = images.length
       ? images.map(img => `<li><a href="${esc(img.url)}">${esc(img.name)}</a></li>`).join("")
       : "<li>Ingen billeder</li>";
 
     const html = `
-      <h2>Ny projekt handover</h2>
+      <h2>Ny produkt handover</h2>
       <p><b>Kunde:</b> ${esc(b.kundenavn)}</p>
       <p><b>Kundenr.:</b> ${esc(b.kundenummer)}</p>
       <p><b>Adresse:</b> ${esc(b.adresse)}</p>
