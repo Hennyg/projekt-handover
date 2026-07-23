@@ -1,8 +1,12 @@
 // api/_dv.js
-const { getTenantId, getClientId, getClientSecret, getDvUrl } = require("./_env");
+const { getTenantId, getClientId, getClientSecret, getDvUrl, getDvCoreDataUrl } = require("./_env");
 
-async function getDvToken() {
-  const resource = getDvUrl();
+// token-cache pr. resource-url, så vi ikke henter et nyt token for hvert kald
+const tokenCache = new Map();
+
+async function getDvToken(resource) {
+  const cached = tokenCache.get(resource);
+  if (cached && cached.expiresAt > Date.now()) return cached.token;
 
   const body = new URLSearchParams({
     grant_type: "client_credentials",
@@ -19,12 +23,19 @@ async function getDvToken() {
 
   const j = await r.json();
   if (!r.ok) throw new Error(`Dataverse token fejl ${r.status}: ${JSON.stringify(j)}`);
+
+  tokenCache.set(resource, {
+    token: j.access_token,
+    // lidt margin før udløb
+    expiresAt: Date.now() + (Number(j.expires_in || 3600) - 60) * 1000
+  });
+
   return j.access_token;
 }
 
-async function dvFetch(path, { method = "GET", body = null, headers = {} } = {}) {
-  const token = await getDvToken();
-  const url = `${getDvUrl()}/api/data/v9.2/${path.replace(/^\//, "")}`;
+async function dvFetchAgainst(resource, path, { method = "GET", body = null, headers = {} } = {}) {
+  const token = await getDvToken(resource);
+  const url = `${resource}/api/data/v9.2/${path.replace(/^\//, "")}`;
 
   const r = await fetch(url, {
     method,
@@ -54,4 +65,35 @@ async function dvFetch(path, { method = "GET", body = null, headers = {} } = {})
   return data;
 }
 
-module.exports = { dvFetch };
+async function fetchAllAgainst(resource, path) {
+  const baseUrl = `${resource}/api/data/v9.2/`;
+  let rows = [];
+  let next = path;
+  while (next) {
+    const data = await dvFetchAgainst(resource, next);
+    rows = rows.concat(data.value || []);
+    const nl = data["@odata.nextLink"];
+    next = nl && nl.startsWith(baseUrl) ? nl.slice(baseUrl.length) : null;
+  }
+  return rows;
+}
+
+// ---- Handover-miljøet (DV_URL) — bruges af api/handovers ----
+async function dvFetch(path, opts) {
+  return dvFetchAgainst(getDvUrl(), path, opts);
+}
+
+async function fetchAll(path) {
+  return fetchAllAgainst(getDvUrl(), path);
+}
+
+// ---- Stamdata-miljøet (DV_COREDATA) — kunder/adresser/produkter ----
+async function dvCoreFetch(path, opts) {
+  return dvFetchAgainst(getDvCoreDataUrl(), path, opts);
+}
+
+async function fetchAllCore(path) {
+  return fetchAllAgainst(getDvCoreDataUrl(), path);
+}
+
+module.exports = { dvFetch, fetchAll, dvCoreFetch, fetchAllCore };
