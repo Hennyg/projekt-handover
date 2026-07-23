@@ -385,7 +385,7 @@ function openNameModal(selected) {
   }
 
   el("nameList").innerHTML = selected.map((x, i) => {
-    const defaultName = `${x.row.lch_kundenummer || "kunde"} - ${x.row.lch_produkt || "produkt"} - ${i + 1}`;
+    const defaultName = `${x.row.lch_produktnr || "produktnr"} - ${x.row.lch_produkt || "produkt"} - ${i + 1}`;
     return `
       <div class="nameItem">
         <img src="${esc(x.image.url || "")}" alt="">
