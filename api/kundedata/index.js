@@ -22,7 +22,8 @@ const ADRESSE_SELECT = [
   "_cr1eb_lch_kunde_value"
 ].join(",");
 
-// Kun produkter der endnu ikke har fået en handover (cr1eb_lch_handover_status = nej)
+// Kun produkter hvor installationsdato stadig er en uudfyldt placeholder ("xx-xx-xxxx")
+// OG der ikke allerede er lavet en handover (cr1eb_lch_handover_status = nej/tomt)
 const PRODUKT_SELECT = [
   "cr1eb_lch_kundeproduktid",
   "cr1eb_lch_kundenr",
@@ -54,7 +55,7 @@ async function loadFromDataverse() {
   const [kundeRows, adresseRows, produktRows] = await Promise.all([
     fetchAllCore(`${KUNDE_TABLE}?$select=${KUNDE_SELECT}&$top=5000`),
     fetchAllCore(`${ADRESSE_TABLE}?$select=${ADRESSE_SELECT}&$top=5000`),
-    fetchAllCore(`${PRODUKT_TABLE}?$select=${PRODUKT_SELECT}&$filter=${encodeURIComponent("cr1eb_lch_handover_status eq false or cr1eb_lch_handover_status eq null")}&$top=5000`)
+    fetchAllCore(`${PRODUKT_TABLE}?$select=${PRODUKT_SELECT}&$filter=${encodeURIComponent("cr1eb_lch_installationsdato eq 'xx-xx-xxxx' and (cr1eb_lch_handover_status eq false or cr1eb_lch_handover_status eq null)")}&$top=5000`)
   ]);
 
   // Kundekort pr. kunde-id (guid), så adresser kan grupperes korrekt
