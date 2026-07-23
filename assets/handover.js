@@ -119,6 +119,16 @@ async function loadKundeData() {
     allProducts = j.produkter || [];
     kundeDataLoaded = true;
 
+    allCustomers = j.kunder || [];
+    allProducts = j.produkter || [];
+    kundeDataLoaded = true;
+
+    renderCustomerResults(
+      getKunderMedAfventendeProdukter(),
+      "Ingen kunder med afventende produkter.",
+      "Kunder med afventende produkter:"
+    );
+
     setStatus("", "");
     updateTileNumbers();
     el("customerTile").classList.remove("hidden");
@@ -154,6 +164,25 @@ function bind() {
   el("btnDownloadAll").addEventListener("click", downloadAllChecked);
 }
 
+function getKunderMedAfventendeProdukter() {
+  const kundenumre = new Set(
+    allProducts.map(p => String(p.kundenr || "").trim().toLowerCase()).filter(Boolean)
+  );
+  return allCustomers.filter(k => kundenumre.has(String(k.kundenr || "").trim().toLowerCase()));
+}
+
+function renderCustomerResults(kunder, emptyMessage, headerText) {
+  const header = headerText ? `<div class="hint" style="margin-bottom:8px;">${esc(headerText)}</div>` : "";
+  el("customerResults").innerHTML = header + (kunder.length
+    ? kunder.map(k => `
+        <div class="resultItem" onclick='selectCustomer(${JSON.stringify(k).replace(/'/g, "&#39;")})'>
+          <div class="resultTitle">${esc(k.navn)}</div>
+          <div class="resultSub">${esc(k.kundenr)} · ${esc(k.adresse)} · ${esc(k.by)}</div>
+        </div>
+      `).join("")
+    : `<div class="hint">${esc(emptyMessage)}</div>`);
+}
+
 function onCustomerSearch() {
   clearTimeout(searchTimer);
 
@@ -165,7 +194,11 @@ function onCustomerSearch() {
   }
 
   if (q.length < 2) {
-    el("customerResults").innerHTML = "";
+    renderCustomerResults(
+      getKunderMedAfventendeProdukter(),
+      "Ingen kunder med afventende produkter.",
+      "Kunder med afventende produkter:"
+    );
     return;
   }
 
@@ -183,14 +216,7 @@ function onCustomerSearch() {
       )
       .slice(0, 50);
 
-    el("customerResults").innerHTML = kunder.length
-      ? kunder.map(k => `
-          <div class="resultItem" onclick='selectCustomer(${JSON.stringify(k).replace(/'/g, "&#39;")})'>
-            <div class="resultTitle">${esc(k.navn)}</div>
-            <div class="resultSub">${esc(k.kundenr)} · ${esc(k.adresse)} · ${esc(k.by)}</div>
-          </div>
-        `).join("")
-      : `<div class="hint">Ingen kunder fundet</div>`;
+    renderCustomerResults(kunder, "Ingen kunder fundet");
   }, 120);
 }
 
