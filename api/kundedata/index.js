@@ -54,7 +54,7 @@ async function loadFromDataverse() {
   const [kundeRows, adresseRows, produktRows] = await Promise.all([
     fetchAllCore(`${KUNDE_TABLE}?$select=${KUNDE_SELECT}&$top=5000`),
     fetchAllCore(`${ADRESSE_TABLE}?$select=${ADRESSE_SELECT}&$top=5000`),
-    fetchAllCore(`${PRODUKT_TABLE}?$select=${PRODUKT_SELECT}&$filter=${encodeURIComponent("cr1eb_lch_handover_status eq false")}&$top=5000`)
+    fetchAllCore(`${PRODUKT_TABLE}?$select=${PRODUKT_SELECT}&$filter=${encodeURIComponent("cr1eb_lch_handover_status eq false or cr1eb_lch_handover_status eq null")}&$top=5000`)
   ]);
 
   // Kundekort pr. kunde-id (guid), så adresser kan grupperes korrekt
