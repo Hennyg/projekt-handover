@@ -1,12 +1,39 @@
 // api/kundedata/index.js
-const XLSX = require("xlsx");
-const { firstEnv, required } = require("../_env");
-const { getGraphToken } = require("../_graph");
+const { fetchAllCore } = require("../_dv");
 
-const SPO_SITE_ID = () => required("DELING_SPO_SITE_ID", firstEnv("DELING_SPO_SITE_ID", "KUNDER_SPO_SITE_ID"));
-const SPO_DRIVE_ID = () => required("DELING_SPO_DRIVE_ID", firstEnv("DELING_SPO_DRIVE_ID", "KUNDER_SPO_DRIVE_ID"));
-const EXCEL_PATH = () => required("KUNDER_SPO_FILE_PATH", firstEnv("KUNDER_SPO_FILE_PATH", "KUNDELISTE_SPO_FILE_PATH"));
-const SHEET_NAME = firstEnv("KUNDER_SPO_SHEET", "KUNDELISTE_SPO_SHEET") || "Lely Center Herrup";
+const KUNDE_TABLE = "cr1eb_lch_kundes";
+const ADRESSE_TABLE = "cr1eb_lch_kundeadresses";
+const PRODUKT_TABLE = "cr1eb_lch_kundeprodukts";
+
+const KUNDE_SELECT = [
+  "cr1eb_lch_kundeid",
+  "cr1eb_lch_kundenr",
+  "cr1eb_lch_navn",
+  "cr1eb_lch_omraade"
+].join(",");
+
+const ADRESSE_SELECT = [
+  "cr1eb_lch_kundeadresseid",
+  "cr1eb_lch_adressekey",
+  "cr1eb_lch_adresse",
+  "cr1eb_lch_postnr",
+  "cr1eb_lch_by",
+  "cr1eb_lch_omraade",
+  "_cr1eb_lch_kunde_value"
+].join(",");
+
+// Kun produkter der endnu ikke har fået en handover (cr1eb_lch_handover_status = nej)
+const PRODUKT_SELECT = [
+  "cr1eb_lch_kundeproduktid",
+  "cr1eb_lch_kundenr",
+  "cr1eb_lch_adressekey",
+  "cr1eb_lch_produkt",
+  "cr1eb_lch_produktnr",
+  "cr1eb_lch_serienr",
+  "cr1eb_lch_kontrakt",
+  "cr1eb_lch_installationsdato",
+  "cr1eb_lch_garantiudloeb"
+].join(",");
 
 let cache = null;
 let cacheTime = 0;
@@ -23,158 +50,98 @@ function json(context, status, body) {
   };
 }
 
-function cell(row, i) {
-  const v = row[i];
-  if (v === null || v === undefined) return "";
-  if (typeof v === "number") return String(v).trim();
-  return String(v).trim();
-}
-
-function dateCell(row, i) {
-  const v = row[i];
-  if (v === null || v === undefined || v === "") return "";
-  if (typeof v === "number") return XLSX.SSF.format("dd-mm-yyyy", v);
-  return String(v).trim();
-}
-
-function hasXPlaceholder(value) {
-  return String(value || "").trim().toLowerCase().includes("xx");
-}
-
-async function downloadExcel() {
-  const token = await getGraphToken();
-  const base = `https://graph.microsoft.com/v1.0/sites/${SPO_SITE_ID()}/drives/${SPO_DRIVE_ID()}/root:/${EXCEL_PATH()}`;
-
-  const [metaR, fileR] = await Promise.all([
-    fetch(base, { headers: { Authorization: `Bearer ${token}` } }),
-    fetch(`${base}:/content`, { headers: { Authorization: `Bearer ${token}` } })
+async function loadFromDataverse() {
+  const [kundeRows, adresseRows, produktRows] = await Promise.all([
+    fetchAllCore(`${KUNDE_TABLE}?$select=${KUNDE_SELECT}&$top=5000`),
+    fetchAllCore(`${ADRESSE_TABLE}?$select=${ADRESSE_SELECT}&$top=5000`),
+    fetchAllCore(`${PRODUKT_TABLE}?$select=${PRODUKT_SELECT}&$filter=${encodeURIComponent("cr1eb_lch_handover_status eq false")}&$top=5000`)
   ]);
 
-  let lastModified = null;
+  // Kundekort pr. kunde-id (guid), så adresser kan grupperes korrekt
+  const kundeById = new Map();
+  const kundenrToId = new Map();
 
-  if (metaR.ok) {
-    const meta = await metaR.json();
-    lastModified = meta.lastModifiedDateTime || null;
+  for (const r of kundeRows) {
+    const id = r.cr1eb_lch_kundeid;
+    const kundenr = r.cr1eb_lch_kundenr || "";
+    kundeById.set(id, {
+      kundenr,
+      navn: r.cr1eb_lch_navn || "",
+      omraade: r.cr1eb_lch_omraade || "",
+      adresse: "",
+      postnr: "",
+      bynavn: "",
+      by: "",
+      kontrakt: "",
+      _kontraktSet: new Set(),
+      _adresseKeys: new Set(),
+      adresser: []
+    });
+    if (kundenr) kundenrToId.set(kundenr, id);
   }
 
-  if (!fileR.ok) {
-    throw new Error(`Excel download fejl ${fileR.status}: ${await fileR.text()}`);
-  }
+  for (const r of adresseRows) {
+    const kundeId = r._cr1eb_lch_kunde_value;
+    const kunde = kundeById.get(kundeId);
+    if (!kunde) continue;
 
-  return {
-    buf: Buffer.from(await fileR.arrayBuffer()),
-    lastModified
-  };
-}
-
-function parseWorkbook(buf, lastModified) {
-  const wb = XLSX.read(buf, { type: "buffer" });
-  const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
-
-  if (!ws) {
-    throw new Error("Ingen ark fundet i Excel-filen.");
-  }
-
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: "", header: 1 });
-  const dataRows = rows.slice(2);
-
-  const kundeMap = new Map();
-  const produkter = [];
-  const firstCustomerRowSeen = new Set();
-
-  for (const row of dataRows) {
-    const kundenavn = cell(row, 0);
-    const adresse = cell(row, 1);
-    const postnr = cell(row, 2);
-    const bynavn = cell(row, 3);
-    const omraade = cell(row, 4);
-    const kundenr = cell(row, 5);
-
-    const produkt = cell(row, 6);
-    const produktnr = cell(row, 7);
-    const serienr = cell(row, 8);
-    // Tjek rå værdier FØR dateCell-konvertering:
-    // Excel gemmer rigtige datoer som tal (f.eks. 44819) — dem springer vi over
-    // Placeholder "xx-xx-xxxx" er tekst — dem inkluderer vi
-    const rawInstall = row[9];
-    const installDato = dateCell(row, 9);
-    const currentInstDato = dateCell(row, 10);
-    const garantiIndtil = dateCell(row, 11);
-    const chr = cell(row, 12);
-    const note = cell(row, 13);
-    const kontraktType = cell(row, 14);
-    // note (index 13) = "Projekt maj-26" e.l. — bruges som kontrakt-label
-    // kontraktType (index 14) = "x" betyder købekontrakt uden navn → "Ukendt kontrakt"
-    const kontrakt = note || (kontraktType === "x" ? "Ukendt kontrakt" : "");
-
-    if (!kundenavn && !kundenr) continue;
-
-    const kundeKey = kundenr || kundenavn;
-
-    if (!kundeMap.has(kundeKey)) {
-      kundeMap.set(kundeKey, {
-        kundenr,
-        navn: kundenavn,
-        adresse,
-        postnr,
-        bynavn,
-        by: [postnr, bynavn].filter(Boolean).join(" "),
-        omraade,
-        kontrakt,
-        _adresseKeys: new Set(),
-        adresser: []
-      });
-    }
-
-    // Saml alle unikke adresser til adresse-tile
-    const kunde = kundeMap.get(kundeKey);
+    const adresse = r.cr1eb_lch_adresse || "";
+    const postnr = r.cr1eb_lch_postnr || "";
+    const bynavn = r.cr1eb_lch_by || "";
+    const by = [postnr, bynavn].filter(Boolean).join(" ");
     const adresseKey = [adresse, postnr, bynavn].join("|");
+
     if (adresse && !kunde._adresseKeys.has(adresseKey)) {
       kunde._adresseKeys.add(adresseKey);
       kunde.adresser.push({
         adresse,
         postnr,
         bynavn,
-        by: [postnr, bynavn].filter(Boolean).join(" "),
+        by,
         label: [adresse, postnr, bynavn].filter(Boolean).join(", ")
       });
     }
+  }
 
-    // Første record pr. kunde er kun info-linje og skal ikke med som produkt.
-    if (!firstCustomerRowSeen.has(kundeKey)) {
-      firstCustomerRowSeen.add(kundeKey);
-      continue;
+  // Primær adresse pr. kunde = første adresse (bruges til flade felter/søgning)
+  for (const kunde of kundeById.values()) {
+    const first = kunde.adresser[0];
+    if (first) {
+      kunde.adresse = first.adresse;
+      kunde.postnr = first.postnr;
+      kunde.bynavn = first.bynavn;
+      kunde.by = first.by;
     }
+  }
 
-    if (!produkt) continue;
+  const produkter = [];
+  for (const r of produktRows) {
+    const kundenr = r.cr1eb_lch_kundenr || "";
+    const kundeId = kundenrToId.get(kundenr);
+    const kunde = kundeId ? kundeById.get(kundeId) : null;
+    const kontrakt = r.cr1eb_lch_kontrakt || "";
 
-    // Spring info-linjer over — de har "x.xxxx.xxxx.x" eller "ingen" i produktnr
-    if (!produktnr || produktnr === "ingen" || produktnr.startsWith("x.xxxx")) continue;
+    if (kunde && kontrakt) kunde._kontraktSet.add(kontrakt);
 
-    // Produktlinjen skal med, hvis Install. dato er tekst med "xx" (placeholder).
-    // Hvis rawInstall er et tal er det en rigtig Excel-dato → spring over.
-    if (typeof rawInstall === "number") continue;
-    if (!hasXPlaceholder(installDato)) continue;
-
-    // Alle linjer inkluderes — ingen deduplicering
-    // serienr gemmes i data men skal ikke vises i dropdown (håndteres i frontend)
     produkter.push({
+      id: r.cr1eb_lch_kundeproduktid,
       kundenr,
-      kundenavn,
-      produkt,
-      produktnr,
-      serienr,       // gemmes til Dataverse-feltet, vises ikke i dropdown
-      installDato,
-      currentInstDato,
-      garantiIndtil,
-      chr,
-      note,
+      kundenavn: kunde ? kunde.navn : "",
+      adressekey: r.cr1eb_lch_adressekey || "",
+      produkt: r.cr1eb_lch_produkt || "",
+      produktnr: r.cr1eb_lch_produktnr || "",
+      serienr: r.cr1eb_lch_serienr || "",
+      installDato: r.cr1eb_lch_installationsdato || "",
+      garantiIndtil: r.cr1eb_lch_garantiudloeb || "",
       kontrakt
     });
   }
 
-  const kunder = Array.from(kundeMap.values())
-    .map(({ _adresseKeys, ...rest }) => rest)
+  const kunder = Array.from(kundeById.values())
+    .map(({ _adresseKeys, _kontraktSet, ...rest }) => ({
+      ...rest,
+      kontrakt: Array.from(_kontraktSet).join(", ")
+    }))
     .sort((a, b) => String(a.navn || "").localeCompare(String(b.navn || ""), "da", { sensitivity: "base" }));
 
   produkter.sort((a, b) =>
@@ -183,7 +150,6 @@ function parseWorkbook(buf, lastModified) {
   );
 
   return {
-    lastModified,
     kunder,
     produkter,
     totalKunder: kunder.length,
@@ -195,8 +161,7 @@ async function getData() {
   const now = Date.now();
 
   if (!cache || now - cacheTime > CACHE_TTL) {
-    const { buf, lastModified } = await downloadExcel();
-    cache = parseWorkbook(buf, lastModified);
+    cache = await loadFromDataverse();
     cacheTime = now;
   }
 
@@ -205,9 +170,13 @@ async function getData() {
 
 module.exports = async function (context, req) {
   try {
+    if (req.query.refresh === "1") {
+      cache = null;
+    }
+
     const data = await getData();
 
-    // ?debug=produkter&kundenr=0080002192 — vis rå produkter for en kunde
+    // ?debug=produkter&kundenr=0080002192 — vis produkter for en kunde
     if (req.query.debug === "produkter") {
       const kundenr = req.query.kundenr || "";
       const sample = data.produkter
@@ -216,27 +185,7 @@ module.exports = async function (context, req) {
       return json(context, 200, { sample });
     }
 
-    // ?debug=raw&kundenr=0080002192 — vis rå XLSX-rækker kolonne A-O for en kunde
-    if (req.query.debug === "raw") {
-      const { buf } = await downloadExcel();
-      const wb = XLSX.read(buf, { type: "buffer" });
-      const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
-      const allRows = XLSX.utils.sheet_to_json(ws, { defval: "", header: 1 });
-      const kundenr = String(req.query.kundenr || "").trim();
-      const headers = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
-      const rows = allRows
-        .map((row, i) => {
-          const obj = { _row: i + 1 };
-          headers.forEach((h, j) => { obj[h] = row[j]; });
-          return obj;
-        })
-        .filter(r => !kundenr || String(r.F || "").trim() === kundenr)
-        .slice(0, 10);
-      return json(context, 200, { rows });
-    }
-
     return json(context, 200, {
-      lastModified: data.lastModified,
       kunder: data.kunder,
       produkter: data.produkter,
       totalKunder: data.totalKunder,
