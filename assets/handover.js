@@ -576,24 +576,27 @@ async function saveHandover() {
   setSaveStatus("loading", "Opretter handover i Dataverse...", 5);
 
   try {
-    const createResp = await fetch("/api/handovers", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        lch_kundenavn: selectedCustomer.navn,
-        lch_kundenummer: selectedCustomer.kundenr,
-        lch_adresse: buildAdresseString(),
-        lch_team: selectedTeam,
-        lch_produkt: produkt,
-        lch_produktnr: produktnr,
-        lch_serienr: serienr,
-        lch_ldn: ldn,
-        lch_kommentar: kommentar,
-        lch_tekniker: currentUser
-      })
-    });
+const createResp = await fetch("/api/handovers", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    lch_kundenavn: selectedCustomer.navn,
+    lch_kundenummer: selectedCustomer.kundenr,
+    lch_adresse: buildAdresseString(),
+    lch_team: selectedTeam,
+    lch_produkt: produkt,
+    lch_produktnr: produktnr,
+    lch_serienr: serienr,
+    lch_ldn: ldn,
+    lch_kommentar: kommentar,
+    lch_tekniker: currentUser,
+
+    // Id på produktposten i DV_COREDATA
+    coreProductId: selectedProduct?.id || null
+  })
+});
 
     const created = await createResp.json();
 
