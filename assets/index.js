@@ -144,6 +144,30 @@ async function loadRows() {
   applyFilters();
 }
 
+function getImageProxyUrl(image, download = false) {
+  const path = String(image?.path || "").trim();
+  const name = String(
+    image?.name ||
+    image?.fileName ||
+    "billede.jpg"
+  ).trim();
+
+  if (!path) {
+    return "";
+  }
+
+  const params = new URLSearchParams({
+    path,
+    name
+  });
+
+  if (download) {
+    params.set("download", "1");
+  }
+
+  return `/api/downloadimage?${params.toString()}`;
+}
+
 function applyFilters() {
   const q = el("q").value.trim().toLowerCase();
   const status = el("statusFilter").value;
@@ -290,17 +314,41 @@ function openDetail(id) {
       <div class="imageGrid">
         ${
           imgs.length
-            ? imgs.map((img, i) => `
-                <div class="imageCard">
-                  <a href="${esc(img.url || "#")}" target="_blank" rel="noopener">
-                    <img src="${esc(img.url || "")}" alt="">
-                  </a>
-                  <label class="imageOnlyCheck">
-                    <input class="imageCheck" type="checkbox" data-index="${i}">
-                    <span>Vælg</span>
-                  </label>
-                </div>
-              `).join("")
+            ? imgs.map((img, i) => {
+  const imageUrl = getImageProxyUrl(img);
+
+  return `
+    <div class="imageCard">
+      ${
+        imageUrl
+          ? `
+              <a href="${esc(imageUrl)}" target="_blank" rel="noopener">
+                <img
+                  src="${esc(imageUrl)}"
+                  alt="${esc(img.name || img.fileName || "Billede")}"
+                  loading="lazy"
+                >
+              </a>
+            `
+          : `
+              <div class="hint">
+                Billedstien mangler
+              </div>
+            `
+      }
+
+      <label class="imageOnlyCheck">
+        <input
+          class="imageCheck"
+          type="checkbox"
+          data-index="${i}"
+          ${imageUrl ? "" : "disabled"}
+        >
+        <span>Vælg</span>
+      </label>
+    </div>
+  `;
+}).join("")
             : "<p>Ingen billeder.</p>"
         }
       </div>
@@ -388,7 +436,10 @@ function openNameModal(selected) {
     const defaultName = `${x.row.lch_produktnr || "produktnr"} - ${x.row.lch_produkt || "produkt"} - ${i + 1}`;
     return `
       <div class="nameItem">
-        <img src="${esc(x.image.url || "")}" alt="">
+        <img
+  src="${esc(getImageProxyUrl(x.image))}"
+  alt="${esc(x.image.name || x.image.fileName || "Billede")}"
+>
         <div>
           <label>Filnavn ${i + 1}</label>
           <input class="nameInput" type="text" value="${esc(defaultName)}" data-pos="${i}">
