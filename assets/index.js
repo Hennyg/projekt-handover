@@ -427,23 +427,80 @@ function openNameModal(selected) {
   el("downloadProgress").classList.add("hidden");
   setDownloadProgress("", 0);
 
-  el("folderInfo").textContent = "Næste trin: tryk Gem billeder og vælg den mappe billederne skal gemmes i.";
+  el("folderInfo").textContent =
+    "Næste trin: tryk Gem billeder og vælg den mappe billederne skal gemmes i.";
+
   if (!window.showDirectoryPicker) {
-    el("folderInfo").textContent = "Din browser understøtter ikke mappevalg. Der bruges almindelig download i stedet. Brug Edge eller Chrome på PC for mappevalg.";
+    el("folderInfo").textContent =
+      "Din browser understøtter ikke mappevalg. Der bruges almindelig download i stedet. Brug Edge eller Chrome på PC for mappevalg.";
   }
 
-  el("nameList").innerHTML = selected.map((x, i) => {
-    const defaultName = `${x.row.lch_produktnr || "produktnr"} - ${x.row.lch_produkt || "produkt"} - ${i + 1}`;
+  // Antal valgte billeder pr. handover-record.
+  // Bruges kun til nummerering, når samme record har flere billeder.
+  const imageCountByRow = new Map();
+
+  for (const item of selected) {
+    const rowId = String(item.row?.id || "");
+
+    imageCountByRow.set(
+      rowId,
+      (imageCountByRow.get(rowId) || 0) + 1
+    );
+  }
+
+  // Aktuelt billednummer pr. handover-record.
+  const currentImageNumberByRow = new Map();
+
+  el("nameList").innerHTML = selected.map((item, position) => {
+    const row = item.row || {};
+    const image = item.image || {};
+    const rowId = String(row.id || "");
+
+    const currentImageNumber =
+      (currentImageNumberByRow.get(rowId) || 0) + 1;
+
+    currentImageNumberByRow.set(
+      rowId,
+      currentImageNumber
+    );
+
+    const productParts = [
+      row.lch_produkt,
+      row.lch_produktnr,
+      row.lch_serienr
+    ]
+      .map(value => String(value || "").trim())
+      .filter(Boolean);
+
+    let defaultName =
+      productParts.join(" · ") ||
+      "Produkt";
+
+    // Tilføj kun billednummer, når den samme record har flere billeder.
+    if ((imageCountByRow.get(rowId) || 0) > 1) {
+      defaultName += ` · ${currentImageNumber}`;
+    }
+
     return `
       <div class="nameItem">
         <img
-  src="${esc(getImageProxyUrl(x.image))}"
-  alt="${esc(x.image.name || x.image.fileName || "Billede")}"
->
+          src="${esc(getImageProxyUrl(image))}"
+          alt="${esc(image.name || image.fileName || "Billede")}"
+        >
+
         <div>
-          <label>Filnavn ${i + 1}</label>
-          <input class="nameInput" type="text" value="${esc(defaultName)}" data-pos="${i}">
-          <div class="hint">Original filtype bevares automatisk</div>
+          <label>Filnavn ${position + 1}</label>
+
+          <input
+            class="nameInput"
+            type="text"
+            value="${esc(defaultName)}"
+            data-pos="${position}"
+          >
+
+          <div class="hint">
+            Original filtype bevares automatisk
+          </div>
         </div>
       </div>
     `;
@@ -453,6 +510,7 @@ function openNameModal(selected) {
   el("nameModal").classList.remove("hidden");
 
   const first = document.querySelector(".nameInput");
+
   if (first) {
     first.focus();
     first.select();
