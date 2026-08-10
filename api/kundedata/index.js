@@ -34,7 +34,8 @@ const PRODUKT_SELECT = [
   "cr1eb_lch_serienr",
   "cr1eb_lch_kontrakt",
   "cr1eb_lch_installationsdato",
-  "cr1eb_lch_garantiudloeb"
+  "cr1eb_lch_garantiudloeb",
+  "cr1eb_lch_aktiv"
 ].join(",");
 
 function json(context, status, body) {
@@ -57,7 +58,9 @@ async function loadFromDataverse() {
   const productFilter =
     "cr1eb_lch_installationsdato eq 'xx-xx-xxxx' " +
     "and (cr1eb_lch_handover_status eq false " +
-    "or cr1eb_lch_handover_status eq null)";
+    "or cr1eb_lch_handover_status eq null) " +
+    "and (cr1eb_lch_aktiv eq true " +
+    "or cr1eb_lch_aktiv eq null)";
 
   const [kundeRows, adresseRows, produktRows] = await Promise.all([
     fetchAllCore(
@@ -205,7 +208,9 @@ async function loadFromDataverse() {
       garantiIndtil:
         row.cr1eb_lch_garantiudloeb || "",
 
-      kontrakt
+      kontrakt,
+
+      aktiv: row.cr1eb_lch_aktiv ?? true
     });
   }
 
