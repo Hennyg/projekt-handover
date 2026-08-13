@@ -218,7 +218,7 @@ function render() {
   el("countText").textContent = `${filtered.length} vist / ${rows.length} total${selectedVisible ? " · " + selectedVisible + " markeret" : ""}`;
 
   if (!filtered.length) {
-    el("tbody").innerHTML = `<tr><td colspan="12">Ingen linjer fundet</td></tr>`;
+    el("tbody").innerHTML = `<tr><td colspan="11">Ingen linjer fundet</td></tr>`;
     updateSelectAllState();
     return;
   }
@@ -234,8 +234,10 @@ function render() {
         </td>
         <td>${esc(fmtDate(r.createdon))}</td>
         <td>${esc(r.lch_kundenummer)}</td>
-        <td>${esc(r.lch_kundenavn)}</td>
-        <td>${esc(r.lch_team)}</td>
+        <td>
+          <div>${esc(r.lch_kundenavn)}</div>
+          ${r.lch_adresse ? `<div style="font-size:12px;color:#6b7280;">${esc(r.lch_adresse)}</div>` : ""}
+        </td>
         <td>
           <div>${esc(r.lch_produkt)}</div>
           <div style="font-size:12px;color:#6b7280;">${esc(r.lch_produktnr || "")}${r.lch_serienr ? " · " + esc(r.lch_serienr) : ""}</div>
