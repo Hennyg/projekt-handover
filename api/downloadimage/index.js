@@ -24,6 +24,23 @@ function safeFileName(value) {
   return name || "billede.jpg";
 }
 
+// Content-Disposition-headeren må kun indeholde ASCII i "filename=".
+// Danske tegn (æ/ø/å) og andre specialtegn (fx "·") skal enten fjernes
+// fra ASCII-fallbacken eller sendes via det encodede filename*=UTF-8''-format.
+// Uden dette crasher Node/Azure Functions med "Invalid character in header
+// content", hvilket giver et tomt 500-svar uden om vores egen fejlhåndtering.
+function buildContentDisposition(disposition, fileName) {
+  const asciiFallback = String(fileName)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .trim() || "billede.jpg";
+
+  const encoded = encodeURIComponent(fileName);
+
+  return `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
 function json(context, status, body) {
   context.res = {
     status,
@@ -102,7 +119,7 @@ module.exports = async function (context, req) {
           "application/octet-stream",
 
         "Content-Disposition":
-          `${inline ? "inline" : "attachment"}; filename="${fileName}"`,
+          buildContentDisposition(inline ? "inline" : "attachment", fileName),
 
         "Cache-Control": "private, max-age=300"
       },
