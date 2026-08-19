@@ -527,12 +527,30 @@ function closeNameModal() {
   el("downloadProgress").classList.add("hidden");
 }
 
-async function fetchImageBlob(image, fileName) {
-  const r = await fetch("/api/downloadimage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image, fileName })
+function getDownloadUrl(image, fileName) {
+  const path = String(image?.path || "").trim();
+
+  if (!path) {
+    return "";
+  }
+
+  const params = new URLSearchParams({
+    path,
+    fileName: fileName || image?.name || image?.fileName || "billede.jpg",
+    download: "1"
   });
+
+  return `/api/downloadimage?${params.toString()}`;
+}
+
+async function fetchImageBlob(image, fileName) {
+  const url = getDownloadUrl(image, fileName);
+
+  if (!url) {
+    throw new Error("Billedsti mangler");
+  }
+
+  const r = await fetch(url);
 
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
